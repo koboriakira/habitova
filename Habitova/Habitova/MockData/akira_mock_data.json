@@ -1,0 +1,229 @@
+{
+  "user": {
+    "id": "user-akira-001",
+    "username": "akira",
+    "created_at": "2025-01-01T00:00:00Z"
+  },
+  "interview": {
+    "id": "interview-akira-001",
+    "version": 1,
+    "habits": [
+      {
+        "id": "habit-wakeup-001",
+        "name": "朝7時起床",
+        "description": "平日、7時～7時15分に起床する",
+        "target_frequency": "daily",
+        "level": 0,
+        "completion_logic": {
+          "type": "direct",
+          "value": 100
+        },
+        "importance_inferred": 0.7,
+        "hidden_parameters": {
+          "rigidityLevel": 0.8,
+          "contextualTriggers": ["子どもの登園準備が必要になる時刻"],
+          "seasonalVariation": true,
+          "toleranceForFailure": 0.3,
+          "emotionalSignificance": 0.6,
+          "userRealisticExpectation": 0.8,
+          "externalPressure": 0.85,
+          "existingMomentum": 0.85
+        }
+      },
+      {
+        "id": "habit-washing-001",
+        "name": "洗顔・身だしなみ",
+        "description": "顔を洗う、歯を磨く、身支度",
+        "target_frequency": "daily",
+        "level": 0,
+        "estimated_time_minutes": 10,
+        "importance_inferred": 0.55,
+        "hidden_parameters": {
+          "rigidityLevel": 0.4,
+          "toleranceForFailure": 0.7,
+          "userRealisticExpectation": 0.5,
+          "emotionalSignificance": 0.4
+        }
+      },
+      {
+        "id": "habit-coffee-001",
+        "name": "コーヒーボタンON",
+        "description": "前夜に準備してあるコーヒーメーカーのボタンを押す",
+        "target_frequency": "daily",
+        "level": 0,
+        "estimated_time_minutes": 2,
+        "importance_inferred": 0.65
+      },
+      {
+        "id": "habit-stretch-001",
+        "name": "ストレッチ（軽く）",
+        "description": "軽いストレッチ、可能であれば実施",
+        "target_frequency": "daily",
+        "level": 0,
+        "estimated_time_minutes": 5,
+        "importance_inferred": 0.35,
+        "hidden_parameters": {
+          "rigidityLevel": 0.3,
+          "toleranceForFailure": 0.8,
+          "emotionalSignificance": 0.4,
+          "userRealisticExpectation": 0.4
+        }
+      },
+      {
+        "id": "habit-breakfast-001",
+        "name": "子どもの朝ごはん準備",
+        "description": "子どもの朝食を準備し、一緒に食べさせる",
+        "target_frequency": "daily",
+        "level": 0,
+        "estimated_time_minutes": 20,
+        "importance_inferred": 0.95,
+        "hidden_parameters": {
+          "rigidityLevel": 0.95,
+          "toleranceForFailure": 0.05,
+          "externalPressure": 0.95,
+          "emotionalSignificance": 0.9
+        }
+      },
+      {
+        "id": "habit-sendoff-001",
+        "name": "登園準備・送迎",
+        "description": "子どもの身支度をして、8時15分～8時45分に登園に送迎",
+        "target_frequency": "daily",
+        "level": 0,
+        "estimated_time_minutes": 30
+      },
+      {
+        "id": "habit-my-breakfast-001",
+        "name": "自分の朝食",
+        "description": "登園送迎後、自分の朝食を準備・摂取",
+        "target_frequency": "daily",
+        "level": 0,
+        "estimated_time_minutes": 15
+      },
+      {
+        "id": "habit-work-start-001",
+        "name": "仕事開始（9時30分）",
+        "description": "リモートワークの業務開始",
+        "target_frequency": "weekdays",
+        "level": 0
+      },
+      {
+        "id": "habit-child-sleep-001",
+        "name": "子どもを寝かしつける",
+        "description": "22時頃に子どもを寝かしつける",
+        "target_frequency": "daily",
+        "level": 0,
+        "estimated_time_minutes": 30
+      },
+      {
+        "id": "habit-night-sleep-001",
+        "name": "夜23時就寝（基本）",
+        "description": "23時に就寝する（基本的なリズム）",
+        "target_frequency": "daily",
+        "level": 0,
+        "importance_inferred": 0.75
+      },
+      {
+        "id": "habit-idol-watch-001",
+        "name": "アイドル配信視聴（週1回）",
+        "description": "毎日開催されるアイドル配信のうち、週1回程度視聴する",
+        "target_frequency": "weekly",
+        "level": 0,
+        "importance_inferred": 0.8,
+        "hidden_parameters": {
+          "emotionalSignificance": 0.9,
+          "existingMomentum": 0.95
+        }
+      },
+      {
+        "id": "habit-split-sleep-001",
+        "name": "分割睡眠（配信ある日）",
+        "description": "23時就寝 → 25時起床 → 配信視聴（26時～27時半頃） → 28時に再就寝",
+        "target_frequency": "weekly",
+        "level": 0
+      }
+    ],
+    "chains": [
+      {
+        "id": "chain-morning-001",
+        "trigger_habits": ["habit-wakeup-001"],
+        "next_habit_id": "habit-washing-001",
+        "delay_minutes": 0,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 0
+        }
+      },
+      {
+        "id": "chain-morning-002",
+        "trigger_habits": ["habit-washing-001"],
+        "next_habit_id": "habit-coffee-001",
+        "delay_minutes": 5,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 5
+        }
+      },
+      {
+        "id": "chain-morning-003",
+        "trigger_habits": ["habit-coffee-001"],
+        "next_habit_id": "habit-stretch-001",
+        "delay_minutes": 5,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 5
+        }
+      },
+      {
+        "id": "chain-morning-004",
+        "trigger_habits": ["habit-stretch-001"],
+        "next_habit_id": "habit-breakfast-001",
+        "delay_minutes": 5,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 5
+        }
+      },
+      {
+        "id": "chain-morning-005",
+        "trigger_habits": ["habit-breakfast-001"],
+        "next_habit_id": "habit-sendoff-001",
+        "delay_minutes": 10,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 10
+        }
+      },
+      {
+        "id": "chain-morning-006",
+        "trigger_habits": ["habit-sendoff-001"],
+        "next_habit_id": "habit-my-breakfast-001",
+        "delay_minutes": 5,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 5
+        }
+      },
+      {
+        "id": "chain-morning-007",
+        "trigger_habits": ["habit-my-breakfast-001"],
+        "next_habit_id": "habit-work-start-001",
+        "delay_minutes": 30,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 30
+        }
+      },
+      {
+        "id": "chain-night-001",
+        "trigger_habits": ["habit-child-sleep-001"],
+        "next_habit_id": "habit-night-sleep-001",
+        "delay_minutes": 30,
+        "trigger_condition": {
+          "type": "timeAfter",
+          "delayMinutes": 30
+        }
+      }
+    ]
+  }
+}

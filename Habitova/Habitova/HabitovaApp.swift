@@ -7,12 +7,18 @@
 
 import SwiftUI
 import SwiftData
+// import ComposableArchitecture  // TCAパッケージ追加後にコメント解除
 
 @main
 struct HabitovaApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Habit.self,
+            Message.self,
+            HabitExecution.self,
+            HabitovaTask.self,
+            ExecutionInference.self,
+            HabitChain.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -26,7 +32,15 @@ struct HabitovaApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    setupMockData()
+                }
         }
         .modelContainer(sharedModelContainer)
+    }
+    
+    private func setupMockData() {
+        let context = sharedModelContainer.mainContext
+        MockDataLoader.shared.setupMockDataInContext(context)
     }
 }
