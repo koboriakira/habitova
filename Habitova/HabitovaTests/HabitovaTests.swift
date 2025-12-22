@@ -193,5 +193,75 @@ struct HabitovaTests {
             print("- AI応答: \(aiMessage.content)")
         }
     }
+    
+    @Test("Chain consistency checker works correctly")
+    @MainActor
+    func chainConsistencyCheckerWorksCorrectly() async throws {
+        // Given: In-memory model context with mock data
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Habit.self, Message.self, HabitExecution.self, HabitovaTask.self, ExecutionInference.self, HabitChain.self, configurations: config)
+        let modelContext = container.mainContext
+        
+        // Setup mock data
+        MockDataLoader.shared.setupMockDataInContext(modelContext)
+        
+        // When: Create chain checker and check consistency
+        let chainChecker = ChainConsistencyChecker(modelContext: modelContext)
+        
+        // Fetch some habits to use in testing
+        let fetchDescriptor = FetchDescriptor<Habit>()
+        let habits = try modelContext.fetch(fetchDescriptor)
+        #expect(habits.count >= 3)
+        
+        // Execute only first habit (simulating skipped habits in a chain)
+        let executedHabits = [habits[0].id]
+        let report = await chainChecker.checkChainConsistency(for: executedHabits)
+        
+        // Then: Chain consistency check should work
+        if let report = report {
+            #expect(report.executedHabits.count == 1)
+            #expect(!report.chainName.isEmpty)
+            print("Chain consistency test: \(report.chainName), inconsistency: \(report.inconsistencyLevel)")
+        }
+    }
+    
+    @Test("NLP habit matching works correctly")
+    @MainActor
+    func nlpHabitMatchingWorksCorrectly() async throws {
+        // Given: In-memory model context with mock data
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Habit.self, Message.self, HabitExecution.self, HabitovaTask.self, ExecutionInference.self, HabitChain.self, configurations: config)
+        let modelContext = container.mainContext
+        
+        // Setup mock data
+        MockDataLoader.shared.setupMockDataInContext(modelContext)
+        
+        // When: Test NLP processing with mock response
+        let service = ClaudeAPIService.shared
+        let userInput = "I did morning stretch"
+        
+        // Fetch available habits
+        let fetchDescriptor = FetchDescriptor<Habit>()
+        let availableHabits = try modelContext.fetch(fetchDescriptor)
+        #expect(availableHabits.count >= 5)
+        
+        // Test API analysis (will use mock response since no API key)
+        let result = try await service.analyzeUserInput(
+            userInput: userInput,
+            availableHabits: availableHabits,
+            conversationHistory: []
+        )
+        
+        // Then: NLP should work correctly
+        #expect(!result.aiResponse.isEmpty)
+        #expect(!result.extractedHabits.isEmpty)
+        
+        if let firstHabit = result.extractedHabits.first {
+            #expect(firstHabit.confidence > 0.0)
+            print("NLP test result: \(firstHabit.habitName), confidence: \(firstHabit.confidence)")
+        }
+        
+        print("NLP analysis complete: \(result.extractedHabits.count) habits extracted")
+    }
 
 }

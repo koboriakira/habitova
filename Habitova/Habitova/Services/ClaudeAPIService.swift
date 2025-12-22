@@ -245,8 +245,19 @@ class ClaudeAPIService: ObservableObject {
                        let executionTypeStr = habitDict["execution_type"] as? String,
                        let completionPercentage = habitDict["completion_percentage"] as? Int,
                        let confidence = habitDict["confidence"] as? Double,
-                       let executionType = ExecutionType(rawValue: executionTypeStr),
-                       let uuid = UUID(uuidString: habitId) {
+                       let executionType = ExecutionType(rawValue: executionTypeStr) {
+                        
+                        // UUIDの解析を試行し、失敗した場合は習慣名でマッチングを試す
+                        let uuid: UUID
+                        if let parsedUUID = UUID(uuidString: habitId) {
+                            uuid = parsedUUID
+                        } else if let matchedHabit = availableHabits.first(where: { $0.name == habitName }) {
+                            uuid = matchedHabit.id
+                            print("ClaudeAPIService: Matched habit by name: \(habitName) -> \(uuid)")
+                        } else {
+                            print("ClaudeAPIService: Failed to match habit: \(habitId) / \(habitName)")
+                            continue
+                        }
                         
                         let inferredHabit = InferredHabit(
                             habitId: uuid,
@@ -282,6 +293,79 @@ class ClaudeAPIService: ObservableObject {
         } catch {
             throw APIError.parsingError(error)
         }
+    }
+    
+    /// デモ用モックレスポンス生成
+    private func generateMockResponse(for userInput: String, availableHabits: [Habit]) -> String {
+        // ユーザー入力に基づいて最も関連性の高い習慣を推測
+        let lowercaseInput = userInput.lowercased()
+        var matchedHabits: [(Habit, Double)] = []
+        
+        for habit in availableHabits {
+            var confidence: Double = 0.0
+            let habitNameLower = habit.name.lowercased()
+            let descriptionLower = habit.habitDescription.lowercased()
+            
+            // キーワードマッチング
+            if lowercaseInput.contains("起き") && habitNameLower.contains("起床") {
+                confidence = 0.9
+            } else if lowercaseInput.contains("洗顔") || lowercaseInput.contains("顔洗") {
+                if habitNameLower.contains("洗顔") { confidence = 0.9 }
+            } else if lowercaseInput.contains("コーヒー") {
+                if habitNameLower.contains("コーヒー") { confidence = 0.9 }
+            } else if lowercaseInput.contains("ストレッチ") {
+                if habitNameLower.contains("ストレッチ") { confidence = 0.9 }
+            } else if lowercaseInput.contains("朝食") || lowercaseInput.contains("朝ごはん") {
+                if habitNameLower.contains("朝ごはん") || habitNameLower.contains("朝食") { confidence = 0.9 }
+            } else {
+                // 部分マッチングを試行
+                let inputWords = lowercaseInput.components(separatedBy: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters)).filter { !$0.isEmpty }
+                for word in inputWords {
+                    if habitNameLower.contains(word) || descriptionLower.contains(word) {
+                        confidence = max(confidence, 0.6)
+                    }
+                }
+            }
+            
+            if confidence > 0.0 {
+                matchedHabits.append((habit, confidence))
+            }
+        }
+        
+        // 上位1-2件を選択
+        matchedHabits.sort { $0.1 > $1.1 }
+        let selectedHabits = Array(matchedHabits.prefix(2))
+        
+        let extractedHabitsJSON = selectedHabits.map { habit, confidence in
+            return """
+            {
+              "habit_id": "\(habit.id)",
+              "habit_name": "\(habit.name)",
+              "execution_type": "direct",
+              "completion_percentage": 100,
+              "confidence": \(confidence)
+            }
+            """
+        }.joined(separator: ",\\n    ")
+        
+        let aiResponse = selectedHabits.isEmpty ? "ありがとうございます。" : 
+            "\(selectedHabits[0].0.name)を実行されたんですね。素晴らしいです。"
+        
+        return """
+        {
+          "extracted_habits": [
+            \(extractedHabitsJSON)
+          ],
+          "proactive_questions": ["他に実行した習慣はありますか？"],
+          "ai_response": "\(aiResponse)",
+          "chain_consistency": {
+            "detected_chain": ["\(selectedHabits.first?.0.id.uuidString ?? "")"],
+            "expected_chain": ["\(selectedHabits.first?.0.id.uuidString ?? "")"],
+            "skipped_steps": [],
+            "inconsistency_level": 0.0
+          }
+        }
+        """
     }
     
     private func parseChainConsistency(from dict: [String: Any]) -> ChainConsistencyCheck? {
