@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import Combine
+import SwiftUI
 
 @MainActor
 class SimpleChatViewModel: ObservableObject {
@@ -15,6 +16,34 @@ class SimpleChatViewModel: ObservableObject {
     @Published var currentInput: String = ""
     @Published var isLoading: Bool = false
     @Published var lastChainReport: ChainConsistencyReport?
+    @Published var errorMessage: String?
+    @Published var showingError: Bool = false
+    @Published var connectionStatus: ConnectionStatus = .unknown
+    
+    enum ConnectionStatus: Equatable {
+        case connected
+        case disconnected
+        case unknown
+        case error(String)
+        
+        var displayText: String {
+            switch self {
+            case .connected: return "接続中"
+            case .disconnected: return "オフライン"
+            case .unknown: return "確認中"
+            case .error(let message): return "エラー: \(message)"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .connected: return .green
+            case .disconnected: return .orange
+            case .unknown: return .gray
+            case .error: return .red
+            }
+        }
+    }
     
     private let modelContext: ModelContext
     private let claudeAPIService: ClaudeAPIService
@@ -26,6 +55,17 @@ class SimpleChatViewModel: ObservableObject {
         self.claudeAPIService = ClaudeAPIService.shared
         self.chainChecker = ChainConsistencyChecker(modelContext: modelContext)
         loadRecentMessages()
+        checkConnectionStatus()
+    }
+    
+    func checkConnectionStatus() {
+        Task {
+            if claudeAPIService.isAPIKeyConfigured() {
+                connectionStatus = .connected
+            } else {
+                connectionStatus = .disconnected
+            }
+        }
     }
     
     func sendMessage() async {
@@ -86,15 +126,19 @@ class SimpleChatViewModel: ObservableObject {
         } catch {
             print("Claude API Error: \(error)")
             
-            // エラー時のフォールバック応答
+            // 詳細なエラーハンドリング
+            let errorContent = handleError(error, userInput: userMessageContent)
             let errorMessage = Message(
                 conversationId: conversationId,
                 sender: .assistant,
-                content: "申し訳ありません。分析中にエラーが発生しました。\nあなたのメッセージ: \(userMessageContent)"
+                content: errorContent
             )
             
             modelContext.insert(errorMessage)
             messages.append(errorMessage)
+            
+            // エラー状態の更新
+            updateConnectionStatusOnError(error)
         }
         
         do {
@@ -145,7 +189,53 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     private func loadRecentMessages() {
-        // 簡単な実装 - 空からスタート
-        self.messages = []
+        // 会話履歴の読み込み（最近の20件まで）
+        let fetchDescriptor = FetchDescriptor<Message>(
+            predicate: #Predicate<Message> { $0.conversationId == conversationId },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        
+        do {
+            let allMessages = try modelContext.fetch(fetchDescriptor)
+            self.messages = Array(allMessages.suffix(20)) // 最近の20件
+        } catch {
+            print("Error loading messages: \(error)")
+            self.messages = []
+        }
+    }
+    
+    private func handleError(_ error: Error, userInput: String) -> String {
+        return "エラーが発生しました。\n\nあなたのメッセージ: \"\(userInput)\"\n\nお試しください:\n• インターネット接続を確認\n• アプリを再起動\n• 設定でAPIキーを確認\n• しばらく待ってから再試行"
+    }
+    
+    private func updateConnectionStatusOnError(_ error: Error) {
+        connectionStatus = .error("通信エラー")
+    }
+    
+    func retryLastMessage() {
+        guard let lastUserMessage = messages.reversed().first(where: { $0.sender == .user }) else {
+            return
+        }
+        
+        currentInput = lastUserMessage.content
+        Task {
+            await sendMessage()
+        }
+    }
+    
+    func clearConversation() {
+        // 現在の会話をクリア
+        for message in messages {
+            modelContext.delete(message)
+        }
+        
+        messages.removeAll()
+        lastChainReport = nil
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error clearing conversation: \(error)")
+        }
     }
 }

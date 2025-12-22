@@ -71,7 +71,7 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showingSettings) {
-                SettingsView()
+                EnhancedSettingsView()
                     .onDisappear {
                         // 設定画面が閉じられたときにAPIキーを再読み込み
                         ClaudeAPIService.shared.reloadAPIKey()
@@ -98,6 +98,12 @@ struct ContentView: View {
                     
                     NavigationLink(destination: HabitExecutionListView()) {
                         Image(systemName: "list.bullet.clipboard")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.blue)
+                    }
+                    
+                    NavigationLink(destination: HabitManagementView()) {
+                        Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 18, weight: .medium))
                             .foregroundColor(.blue)
                     }
@@ -174,6 +180,34 @@ struct ContentView: View {
         }
         .padding()
         .background(Color(UIColor.systemBackground))
+    }
+    
+    private func connectionStatusView(for viewModel: SimpleChatViewModel) -> some View {
+        Group {
+            if viewModel.connectionStatus != .connected {
+                HStack {
+                    Image(systemName: "wifi.exclamationmark")
+                        .foregroundColor(viewModel.connectionStatus.color)
+                    
+                    Text(viewModel.connectionStatus.displayText)
+                        .font(.caption)
+                        .foregroundColor(viewModel.connectionStatus.color)
+                    
+                    Spacer()
+                    
+                    if case .error = viewModel.connectionStatus {
+                        Button("設定") {
+                            showingSettings = true
+                        }
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(viewModel.connectionStatus.color.opacity(0.1))
+            }
+        }
     }
 }
 

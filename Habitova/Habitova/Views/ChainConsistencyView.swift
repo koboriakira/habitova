@@ -15,8 +15,11 @@ struct ChainConsistencyView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 20) {
                 headerView
+                
+                // チェーン詳細情報
+                chainVisualizationView
                 
                 if report.inconsistencyLevel > 0 {
                     inconsistencyIndicator
@@ -39,6 +42,11 @@ struct ChainConsistencyView: View {
                 if !report.suggestions.isEmpty {
                     suggestionsSection
                 }
+                
+                // アクションボタン
+                if !report.skippedHabits.isEmpty {
+                    actionButtonsView
+                }
             }
             .padding()
         }
@@ -50,18 +58,42 @@ struct ChainConsistencyView: View {
     }
     
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(report.chainName)
-                .font(.title2)
-                .fontWeight(.bold)
-            
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "link.circle.fill")
                     .foregroundColor(.blue)
+                    .font(.title2)
                 
-                Text("実行済み: \(report.executedHabits.count)/\(report.expectedSequence.count)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(report.chainName)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("実行済み \(report.executedHabits.count)/\(report.expectedSequence.count) 習慣")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // 完了率サークル
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 8)
+                        .frame(width: 60, height: 60)
+                    
+                    Circle()
+                        .trim(from: 0, to: completionProgress)
+                        .stroke(colorForInconsistencyLevel, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .frame(width: 60, height: 60)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeInOut(duration: 1.0), value: completionProgress)
+                    
+                    Text("\(Int(completionProgress * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(colorForInconsistencyLevel)
+                }
             }
         }
         .padding()
@@ -208,6 +240,85 @@ struct ChainConsistencyView: View {
             print("Error loading habit names: \(error)")
         }
     }
+    
+    // MARK: - 新しいビューコンポーネント
+    
+    private var chainVisualizationView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("習慣チェーンの状態")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Array(report.expectedSequence.enumerated()), id: \.offset) { index, habitId in
+                        let isExecuted = report.executedHabits.contains(habitId)
+                        let isSkipped = report.skippedHabits.contains(habitId)
+                        
+                        HabitChainNode(
+                            habitName: habitNames[habitId] ?? "不明",
+                            status: isExecuted ? .completed : (isSkipped ? .skipped : .pending),
+                            isLast: index == report.expectedSequence.count - 1
+                        )
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding()
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var actionButtonsView: some View {
+        VStack(spacing: 12) {
+            Text("クイックアクション")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                if let firstSkipped = report.skippedHabits.first {
+                    Button(action: {
+                        // TODO: スキップされた習慣へのクイックリマインダー
+                    }) {
+                        HStack {
+                            Image(systemName: "bell.fill")
+                            Text("「\(habitNames[firstSkipped] ?? "不明")」を今すぐ実行")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+                
+                Button(action: {
+                    // TODO: チェーン全体のリマインダー
+                }) {
+                    HStack {
+                        Image(systemName: "clock.fill")
+                        Text("チェーン全体をリマインド")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .foregroundColor(.orange)
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            }
+        }
+        .padding()
+        .background(Color(UIColor.systemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var completionProgress: Double {
+        guard !report.expectedSequence.isEmpty else { return 0 }
+        return Double(report.executedHabits.count) / Double(report.expectedSequence.count)
+    }
 }
 
 struct HabitRowView: View {
@@ -279,29 +390,91 @@ struct HabitRowView: View {
     }
 }
 
+// MARK: - 新しいコンポーネント
+
+struct HabitChainNode: View {
+    let habitName: String
+    let status: NodeStatus
+    let isLast: Bool
+    
+    enum NodeStatus {
+        case completed
+        case skipped
+        case pending
+        
+        var color: Color {
+            switch self {
+            case .completed: return .green
+            case .skipped: return .red
+            case .pending: return .gray
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .completed: return "checkmark.circle.fill"
+            case .skipped: return "xmark.circle.fill"
+            case .pending: return "circle.dashed"
+            }
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(spacing: 8) {
+                Image(systemName: status.icon)
+                    .font(.title2)
+                    .foregroundColor(status.color)
+                
+                Text(habitName)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(status == .completed ? .primary : .secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .frame(width: 80)
+            }
+            
+            if !isLast {
+                Image(systemName: "arrow.right")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+}
+
 struct OrderViolationRow: View {
     let violation: OrderViolation
     let habitNames: [UUID: String]
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             Image(systemName: "arrow.up.arrow.down.circle.fill")
                 .foregroundColor(.red)
-                .font(.caption)
+                .font(.title3)
             
-            VStack(alignment: .leading, spacing: 2) {
-                Text("「\(habitNames[violation.expectedFirst] ?? "不明")」→「\(habitNames[violation.expectedSecond] ?? "不明")」")
-                    .font(.caption)
-                    .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("期待順序:")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text("「\(habitNames[violation.expectedFirst] ?? "不明")」 → 「\(habitNames[violation.expectedSecond] ?? "不明")」")
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                }
                 
                 Text("順序が逆になっています")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.red)
+                    .fontWeight(.medium)
             }
             
             Spacer()
         }
-        .padding(.vertical, 4)
+        .padding()
+        .background(Color.red.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

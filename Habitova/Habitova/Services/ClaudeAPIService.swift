@@ -9,6 +9,7 @@ import Foundation
 import Combine
 import SwiftData
 
+
 // MARK: - API Structures (outside of class to avoid MainActor isolation)
 struct ClaudeRequest: Codable, Sendable {
     let model: String
