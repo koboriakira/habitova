@@ -13,6 +13,8 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var habits: [Habit]
     @State private var chatViewModel: SimpleChatViewModel?
+    @State private var currentInput: String = ""
+    @State private var showingSettings = false
     
     var body: some View {
         NavigationView {
@@ -68,6 +70,13 @@ struct ContentView: View {
                     print("ContentView: SimpleChatViewModel already exists")
                 }
             }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+                    .onDisappear {
+                        // 設定画面が閉じられたときにAPIキーを再読み込み
+                        ClaudeAPIService.shared.reloadAPIKey()
+                    }
+            }
         }
     }
     
@@ -81,6 +90,12 @@ struct ContentView: View {
                 Spacer()
                 
                 HStack(spacing: 16) {
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.blue)
+                    }
+                    
                     NavigationLink(destination: HabitExecutionListView()) {
                         Image(systemName: "list.bullet.clipboard")
                             .font(.system(size: 18, weight: .medium))
@@ -117,19 +132,18 @@ struct ContentView: View {
     private var inputView: some View {
         HStack(spacing: 12) {
             if let viewModel = chatViewModel {
-                TextField("今日何をしましたか？", text: Binding(
-                    get: { viewModel.currentInput },
-                    set: { viewModel.currentInput = $0 }
-                ), axis: .vertical)
+                TextField("今日何をしましたか？", text: $currentInput, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
                 .disabled(viewModel.isLoading)
                 
                 Button(action: {
-                    print("ContentView: Send button tapped")
+                    print("ContentView: Send button tapped with input: \(currentInput)")
                     Task {
                         print("ContentView: Starting sendMessage task")
+                        viewModel.currentInput = currentInput
                         await viewModel.sendMessage()
+                        currentInput = ""
                         print("ContentView: sendMessage task completed")
                     }
                 }) {
@@ -139,10 +153,10 @@ struct ContentView: View {
                         .padding(10)
                         .background(
                             Circle()
-                                .fill(viewModel.currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
+                                .fill(currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
                         )
                 }
-                .disabled(viewModel.currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
+                .disabled(currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
             } else {
                 TextField("ロード中...", text: .constant(""))
                     .textFieldStyle(.roundedBorder)

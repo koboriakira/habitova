@@ -52,12 +52,34 @@ struct HabitAnalysisResult: Sendable {
 class ClaudeAPIService: ObservableObject {
     static let shared = ClaudeAPIService()
     
-    private let apiKey: String
+    private var apiKey: String
     private let baseURL = "https://api.anthropic.com/v1/messages"
     
     private init() {
-        // TODO: 実際の実装ではセキュアな方法でAPIキーを管理
-        self.apiKey = ProcessInfo.processInfo.environment["CLAUDE_API_KEY"] ?? ""
+        // Keychainから取得、なければ環境変数、それもなければ空文字
+        if let keychainKey = KeychainService.shared.getAPIKey(), !keychainKey.isEmpty {
+            self.apiKey = keychainKey
+        } else if let envKey = ProcessInfo.processInfo.environment["CLAUDE_API_KEY"], !envKey.isEmpty {
+            self.apiKey = envKey
+        } else {
+            self.apiKey = ""
+        }
+    }
+    
+    /// APIキーを再読み込み（設定変更時に呼び出し）
+    func reloadAPIKey() {
+        if let keychainKey = KeychainService.shared.getAPIKey(), !keychainKey.isEmpty {
+            self.apiKey = keychainKey
+        } else if let envKey = ProcessInfo.processInfo.environment["CLAUDE_API_KEY"], !envKey.isEmpty {
+            self.apiKey = envKey
+        } else {
+            self.apiKey = ""
+        }
+    }
+    
+    /// APIキーが設定されているかチェック
+    func isAPIKeyConfigured() -> Bool {
+        return !apiKey.isEmpty
     }
     
     func analyzeUserInput(
@@ -84,7 +106,7 @@ class ClaudeAPIService: ObservableObject {
         messages.append(ClaudeMessage(role: "user", content: userInput))
         
         let request = ClaudeRequest(
-            model: "claude-3-5-sonnet-20241022",
+            model: "claude-3-5-haiku-20241022",
             max_tokens: 1000,
             messages: messages,
             system: systemPrompt

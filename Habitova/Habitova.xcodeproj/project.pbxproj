@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C45DB47E2EF8E56A00DF8564 /* .env in Resources */ = {isa = PBXBuildFile; fileRef = C45DB47D2EF8E56A00DF8564 /* .env */; };
+		C45DB47F2EF8E56A00DF8564 /* .env in Resources */ = {isa = PBXBuildFile; fileRef = C45DB47D2EF8E56A00DF8564 /* .env */; };
+		C45DB4802EF8E56A00DF8564 /* .env in Resources */ = {isa = PBXBuildFile; fileRef = C45DB47D2EF8E56A00DF8564 /* .env */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		C4BBC8B12EF7AAB700818E71 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +30,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C45DB47D2EF8E56A00DF8564 /* .env */ = {isa = PBXFileReference; lastKnownFileType = text; path = .env; sourceTree = "<group>"; };
 		C4BBC8A12EF7AAB600818E71 /* Habitova.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Habitova.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4BBC8B02EF7AAB700818E71 /* HabitovaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HabitovaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4BBC8BA2EF7AAB700818E71 /* HabitovaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HabitovaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +86,7 @@
 				C4BBC8B32EF7AAB700818E71 /* HabitovaTests */,
 				C4BBC8BD2EF7AAB700818E71 /* HabitovaUITests */,
 				C4BBC8A22EF7AAB600818E71 /* Products */,
+				C45DB47D2EF8E56A00DF8564 /* .env */,
 			);
 			sourceTree = "<group>";
 		};
@@ -214,6 +222,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C45DB4802EF8E56A00DF8564 /* .env in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +230,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C45DB47E2EF8E56A00DF8564 /* .env in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,6 +238,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C45DB47F2EF8E56A00DF8564 /* .env in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

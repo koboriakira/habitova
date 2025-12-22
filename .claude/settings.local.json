@@ -9,7 +9,14 @@
       "Bash(swift build)",
       "Bash(grep:*)",
       "Bash(true)",
-      "Bash(swift:*)"
+      "Bash(swift:*)",
+      "Bash(touch:*)",
+      "Bash(open:*)",
+      "Bash(/usr/libexec/PlistBuddy:*)",
+      "Bash(chmod:*)",
+      "Bash(ls:*)",
+      "Bash(bash:*)",
+      "Bash(SOURCE_ROOT=/Users/a_kobori/git/habitova BUILT_PRODUCTS_DIR=/tmp/build PRODUCT_NAME=Habitova bash /Users/a_kobori/git/habitova/copy-env.sh)"
     ],
     "deny": []
   }
