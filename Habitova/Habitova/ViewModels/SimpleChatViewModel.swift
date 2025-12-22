@@ -107,10 +107,23 @@ class SimpleChatViewModel: ObservableObject {
             let executedHabitIds = analysisResult.extractedHabits.map { $0.habitId }
             lastChainReport = await chainChecker.checkChainConsistency(for: executedHabitIds)
             
-            // チェーン整合性の結果をAI応答に追加
+            // チェーンベーストリガーメッセージを生成
+            let triggerMessages = await ChainTriggerService.shared.generateTriggerMessages(
+                for: executedHabitIds,
+                context: modelContext
+            )
+            
+            // AI応答にチェーン整合性とトリガーメッセージを追加
             var enhancedResponse = analysisResult.aiResponse
+            
+            // チェーン整合性の結果を追加
             if let report = lastChainReport, !report.suggestions.isEmpty {
                 enhancedResponse += "\n\n💡 " + report.suggestions.joined(separator: "\n💡 ")
+            }
+            
+            // チェーントリガーメッセージを追加
+            if !triggerMessages.isEmpty {
+                enhancedResponse += "\n\n🔗 " + triggerMessages.joined(separator: "\n🔗 ")
             }
             
             // AI応答を作成
