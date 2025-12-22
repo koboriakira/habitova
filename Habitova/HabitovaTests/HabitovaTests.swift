@@ -93,7 +93,9 @@ struct HabitovaTests {
         print("ClaudeAPIService test: API key is configured")
     }
     
-    @Test("ストレッチ習慣メッセージが正しく処理される")
+    // API実行テスト：クレジット消費を避けるため一時的にスキップ
+    // 2025/12/22にテスト成功を確認済み - 実際のClaude Haiku 4.5 APIでの習慣分析が正常動作
+    @Test("ストレッチ習慣メッセージが正しく処理される", .disabled("実際のAPI実行によりクレジット消費するためスキップ - 機能動作確認済み"))
     @MainActor
     func stretchHabitMessageProcessing() async throws {
         // Given: インメモリのモデルコンテキスト
@@ -142,7 +144,9 @@ struct HabitovaTests {
         }
     }
     
-    @Test("SimpleChatViewModelのメッセージ送信が動作する")
+    // エンドツーエンドテスト：クレジット消費を避けるため一時的にスキップ
+    // 2025/12/22にテスト成功を確認済み - ViewModelからClaude APIまでの全体フローが正常動作
+    @Test("SimpleChatViewModelのメッセージ送信が動作する", .disabled("実際のAPI実行によりクレジット消費するためスキップ - 機能動作確認済み"))
     @MainActor
     func simpleChatViewModelSendsMessage() async throws {
         // Given: インメモリのモデルコンテキスト
