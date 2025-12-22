@@ -63,5 +63,131 @@ struct HabitovaTests {
         // Then: 送信ボタンが無効化される
         #expect(viewModel.currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
+    
+    @Test("EnvironmentLoaderは.envファイルからAPIキーを読み取る")
+    func environmentLoaderReadsAPIKey() async throws {
+        // Given: EnvironmentLoader
+        let loader = EnvironmentLoader.shared
+        
+        // When: .envファイルから値を読み取り
+        let apiKey = loader.getClaudeAPIKey()
+        
+        // Then: APIキーが存在することを確認
+        #expect(apiKey != nil)
+        #expect(!apiKey!.isEmpty)
+        #expect(apiKey!.hasPrefix("sk-ant-"))
+        print("EnvironmentLoader test: API key loaded (first 10 chars): \(String(apiKey!.prefix(10)))...")
+    }
+    
+    @Test("ClaudeAPIServiceはAPIキーを正しく設定する")
+    @MainActor
+    func claudeAPIServiceConfiguresAPIKey() async throws {
+        // Given: ClaudeAPIService
+        let service = ClaudeAPIService.shared
+        
+        // When: APIキーが設定されているかチェック
+        let isConfigured = service.isAPIKeyConfigured()
+        
+        // Then: APIキーが設定されている
+        #expect(isConfigured)
+        print("ClaudeAPIService test: API key is configured")
+    }
+    
+    @Test("ストレッチ習慣メッセージが正しく処理される")
+    @MainActor
+    func stretchHabitMessageProcessing() async throws {
+        // Given: インメモリのモデルコンテキスト
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Habit.self, Message.self, HabitExecution.self, HabitovaTask.self, ExecutionInference.self, HabitChain.self, configurations: config)
+        let modelContext = container.mainContext
+        
+        // モックユーザーのストレッチ習慣を作成
+        let stretchHabit = Habit(
+            name: "毎朝のストレッチ",
+            habitDescription: "朝起きてから5分間のストレッチを行う",
+            targetFrequency: "daily",
+            importance: 8
+        )
+        modelContext.insert(stretchHabit)
+        try modelContext.save()
+        
+        // When: Claude APIサービスでユーザー入力を分析
+        let service = ClaudeAPIService.shared
+        let userInput = "ストレッチをしました"
+        let availableHabits = [stretchHabit]
+        
+        let result = try await service.analyzeUserInput(
+            userInput: userInput,
+            availableHabits: availableHabits,
+            conversationHistory: []
+        )
+        
+        // Then: 結果が期待通りである
+        #expect(!result.extractedHabits.isEmpty)
+        #expect(!result.aiResponse.isEmpty)
+        #expect(result.aiResponse != "申し訳ありません。分析中にエラーが発生しました。")
+        
+        print("ストレッチ習慣テスト結果:")
+        print("- 抽出された習慣数: \(result.extractedHabits.count)")
+        print("- AI応答: \(result.aiResponse)")
+        print("- プロアクティブ質問数: \(result.proactiveQuestions.count)")
+        
+        // 抽出された習慣の詳細をチェック
+        if let firstHabit = result.extractedHabits.first {
+            #expect(firstHabit.habitName.contains("ストレッチ") || firstHabit.habitName.contains("朝"))
+            #expect(firstHabit.completionPercentage > 0)
+            print("- 抽出された習慣: \(firstHabit.habitName)")
+            print("- 実行タイプ: \(firstHabit.executionType)")
+            print("- 完了率: \(firstHabit.completionPercentage)%")
+        }
+    }
+    
+    @Test("SimpleChatViewModelのメッセージ送信が動作する")
+    @MainActor
+    func simpleChatViewModelSendsMessage() async throws {
+        // Given: インメモリのモデルコンテキスト
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Habit.self, Message.self, HabitExecution.self, HabitovaTask.self, ExecutionInference.self, HabitChain.self, configurations: config)
+        let modelContext = container.mainContext
+        
+        // ストレッチ習慣を追加
+        let stretchHabit = Habit(
+            name: "毎朝のストレッチ",
+            habitDescription: "朝起きてから5分間のストレッチを行う",
+            targetFrequency: "daily",
+            importance: 8
+        )
+        modelContext.insert(stretchHabit)
+        try modelContext.save()
+        
+        // When: ViewModelを初期化してメッセージを送信
+        let viewModel = SimpleChatViewModel(modelContext: modelContext)
+        viewModel.currentInput = "ストレッチをしました"
+        
+        let initialMessageCount = viewModel.messages.count
+        #expect(!viewModel.isLoading)
+        
+        await viewModel.sendMessage()
+        
+        // Then: メッセージが正しく処理される
+        #expect(!viewModel.isLoading)
+        #expect(viewModel.messages.count > initialMessageCount)
+        #expect(viewModel.currentInput.isEmpty)
+        
+        // メッセージの内容をチェック
+        if viewModel.messages.count >= 2 {
+            let userMessage = viewModel.messages[viewModel.messages.count - 2]
+            let aiMessage = viewModel.messages.last!
+            
+            #expect(userMessage.sender == .user)
+            #expect(userMessage.content == "ストレッチをしました")
+            #expect(aiMessage.sender == .assistant)
+            #expect(!aiMessage.content.contains("申し訳ありません。分析中にエラーが発生しました"))
+            
+            print("SimpleChatViewModel テスト結果:")
+            print("- ユーザーメッセージ: \(userMessage.content)")
+            print("- AI応答: \(aiMessage.content)")
+        }
+    }
 
 }

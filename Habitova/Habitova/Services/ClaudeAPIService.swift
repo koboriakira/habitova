@@ -56,11 +56,13 @@ class ClaudeAPIService: ObservableObject {
     private let baseURL = "https://api.anthropic.com/v1/messages"
     
     private init() {
-        // Keychainから取得、なければ環境変数、それもなければ空文字
+        // Keychainから取得、なければ.envファイル、それもなければ環境変数、それもなければ空文字
         if let keychainKey = KeychainService.shared.getAPIKey(), !keychainKey.isEmpty {
             self.apiKey = keychainKey
-        } else if let envKey = ProcessInfo.processInfo.environment["CLAUDE_API_KEY"], !envKey.isEmpty {
+        } else if let envKey = EnvironmentLoader.shared.getClaudeAPIKey(), !envKey.isEmpty {
             self.apiKey = envKey
+        } else if let processEnvKey = ProcessInfo.processInfo.environment["CLAUDE_API_KEY"], !processEnvKey.isEmpty {
+            self.apiKey = processEnvKey
         } else {
             self.apiKey = ""
         }
@@ -70,8 +72,10 @@ class ClaudeAPIService: ObservableObject {
     func reloadAPIKey() {
         if let keychainKey = KeychainService.shared.getAPIKey(), !keychainKey.isEmpty {
             self.apiKey = keychainKey
-        } else if let envKey = ProcessInfo.processInfo.environment["CLAUDE_API_KEY"], !envKey.isEmpty {
+        } else if let envKey = EnvironmentLoader.shared.getClaudeAPIKey(), !envKey.isEmpty {
             self.apiKey = envKey
+        } else if let processEnvKey = ProcessInfo.processInfo.environment["CLAUDE_API_KEY"], !processEnvKey.isEmpty {
+            self.apiKey = processEnvKey
         } else {
             self.apiKey = ""
         }
