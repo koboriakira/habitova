@@ -19,6 +19,7 @@ struct EnhancedSettingsView: View {
     @State private var connectionStatus: ConnectionStatus = .disconnected
     @StateObject private var notificationService = NotificationService.shared
     @State private var showingNotificationSettings = false
+    @State private var showingDataExport = false
     @Environment(\.dismiss) private var dismiss
     
     enum AppearanceMode: String, CaseIterable {
@@ -93,6 +94,9 @@ struct EnhancedSettingsView: View {
             }
             .sheet(isPresented: $showingNotificationSettings) {
                 NotificationSettingsView()
+            }
+            .sheet(isPresented: $showingDataExport) {
+                DataExportView()
             }
         }
     }
@@ -252,7 +256,7 @@ struct EnhancedSettingsView: View {
             .foregroundColor(.red)
             
             Button("データをエクスポート") {
-                // TODO: データエクスポート機能
+                showingDataExport = true
             }
         }
     }
