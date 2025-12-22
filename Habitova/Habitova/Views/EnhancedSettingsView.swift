@@ -17,6 +17,8 @@ struct EnhancedSettingsView: View {
     @State private var enableAnalytics = true
     @State private var defaultReminders = true
     @State private var connectionStatus: ConnectionStatus = .disconnected
+    @StateObject private var notificationService = NotificationService.shared
+    @State private var showingNotificationSettings = false
     @Environment(\.dismiss) private var dismiss
     
     enum AppearanceMode: String, CaseIterable {
@@ -59,6 +61,9 @@ struct EnhancedSettingsView: View {
                 // アプリ設定セクション
                 appConfigurationSection
                 
+                // 通知設定セクション
+                notificationSettingsSection
+                
                 // 高度な設定
                 advancedSettingsSection
                 
@@ -85,6 +90,9 @@ struct EnhancedSettingsView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertMessage)
+            }
+            .sheet(isPresented: $showingNotificationSettings) {
+                NotificationSettingsView()
             }
         }
     }
@@ -170,12 +178,57 @@ struct EnhancedSettingsView: View {
                 .pickerStyle(.menu)
             }
             
-            Toggle(isOn: $defaultReminders) {
-                Label("デフォルトリマインダー", systemImage: "bell")
-            }
-            
             Toggle(isOn: $enableAnalytics) {
                 Label("利用統計", systemImage: "chart.bar")
+            }
+        }
+    }
+    
+    private var notificationSettingsSection: some View {
+        Section(header: Text("通知設定")) {
+            HStack {
+                Label("通知許可", systemImage: "bell")
+                Spacer()
+                
+                if notificationService.isAuthorized {
+                    HStack {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 8, height: 8)
+                        Text("許可済み")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                } else {
+                    Button("許可") {
+                        Task {
+                            await notificationService.requestAuthorization()
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                }
+            }
+            
+            Toggle(isOn: $defaultReminders) {
+                Label("スマートリマインダー", systemImage: "brain")
+            }
+            .disabled(!notificationService.isAuthorized)
+            
+            if notificationService.isAuthorized {
+                Button(action: { showingNotificationSettings = true }) {
+                    HStack {
+                        Label("リマインダー管理", systemImage: "bell.badge")
+                        Spacer()
+                        Text("\(notificationService.scheduledNotifications.count)件")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .foregroundColor(.primary)
             }
         }
     }
