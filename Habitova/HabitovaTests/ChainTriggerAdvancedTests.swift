@@ -73,6 +73,7 @@ struct ChainTriggerAdvancedTests {
         // 存在しないnextHabitIdを持つ破損したチェーン
         let corruptedChain = HabitChain(
             triggerHabits: [habitId],
+            prerequisiteHabits: [String: Any]?(nil),
             nextHabitId: UUID(), // 存在しないID
             delayMinutes: 5,
             triggerCondition: TriggerCondition(type: "immediate", delayMinutes: 5, context: nil),
@@ -118,6 +119,7 @@ struct ChainTriggerAdvancedTests {
             if i > 0 {
                 let chain = HabitChain(
                     triggerHabits: [habits[i-1].id],
+                    prerequisiteHabits: [String: Any]?(nil),
                     nextHabitId: habit.id,
                     delayMinutes: 5,
                     triggerCondition: TriggerCondition(type: "immediate", delayMinutes: 5, context: nil),
@@ -162,6 +164,7 @@ struct ChainTriggerAdvancedTests {
         // 習慣1と習慣2の両方が完了したときに習慣3がトリガーされるチェーン
         let multiTriggerChain = HabitChain(
             triggerHabits: [habit1.id, habit2.id],
+            prerequisiteHabits: [String: Any]?(nil),
             nextHabitId: habit3.id,
             delayMinutes: 10,
             triggerCondition: TriggerCondition(type: "all_required", delayMinutes: 10, context: nil),
@@ -207,6 +210,7 @@ struct ChainTriggerAdvancedTests {
         // 起床から洗顔とストレッチの両方へのチェーンを作成
         let washingChain = HabitChain(
             triggerHabits: [wakeupHabit.id],
+            prerequisiteHabits: [String: Any]?(nil),
             nextHabitId: washingHabit.id,
             delayMinutes: 5,
             triggerCondition: TriggerCondition(type: "immediate", delayMinutes: 5, context: nil),
@@ -215,6 +219,7 @@ struct ChainTriggerAdvancedTests {
         
         let stretchChain = HabitChain(
             triggerHabits: [wakeupHabit.id],
+            prerequisiteHabits: [String: Any]?(nil),
             nextHabitId: stretchHabit.id,
             delayMinutes: 10,
             triggerCondition: TriggerCondition(type: "immediate", delayMinutes: 10, context: nil),
@@ -247,7 +252,8 @@ struct ChainTriggerAdvancedTests {
     
     // MARK: - 実際のAPI使用統合テスト
     
-    @Test("実際のAPI使用 - 自然言語による複雑な報告", .disabled("本物のAPIを使用するため無効化"))
+    @Test("実際のAPI使用 - 自然言語による複雑な報告")
+    .disabled("本物のAPIを使用するため無効化")
     @MainActor
     func testRealAPIComplexInput() async throws {
         let hasAPI = ChainTriggerTestHelpers.checkAPIConfiguration()
@@ -295,7 +301,8 @@ struct ChainTriggerAdvancedTests {
         print("✅ 実際のAPI複雑入力テスト完了")
     }
     
-    @Test("APIレスポンス時間測定", .disabled("本物のAPIを使用するため無効化"))
+    @Test("APIレスポンス時間測定")
+    .disabled("本物のAPIを使用するため無効化")
     @MainActor
     func testAPIResponseTime() async throws {
         let hasAPI = ChainTriggerTestHelpers.checkAPIConfiguration()

@@ -119,6 +119,7 @@ struct ChainTriggerTestHelpers {
     ) -> HabitChain {
         return HabitChain(
             triggerHabits: triggerIds,
+            prerequisiteHabits: [String: Any]?(nil),
             nextHabitId: nextId,
             delayMinutes: delay,
             triggerCondition: TriggerCondition(type: "immediate", delayMinutes: delay, context: nil),
