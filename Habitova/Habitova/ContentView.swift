@@ -15,7 +15,6 @@ struct ContentView: View {
     @State private var chatViewModel: SimpleChatViewModel?
     @State private var currentInput: String = ""
     @State private var showingSettings = false
-    @State private var isInitializing = true
     
     var body: some View {
         NavigationView {
@@ -24,45 +23,43 @@ struct ContentView: View {
                 headerView
                 
                 // メッセージリスト
-                if isInitializing {
-                    // ローディング画面
-                    VStack {
-                        Spacer()
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                        Text("初期化中...")
-                            .foregroundColor(.secondary)
-                            .padding(.top, 8)
-                        Spacer()
-                    }
-                } else {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 12) {
-                                if let viewModel = chatViewModel {
-                                    ForEach(viewModel.messages) { message in
-                                        MessageBubble(message: message)
-                                            .id(message.id)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            if let viewModel = chatViewModel {
+                                ForEach(viewModel.messages) { message in
+                                    MessageBubble(message: message)
+                                        .id(message.id)
+                                }
+                                
+                                if viewModel.isLoading {
+                                    HStack {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                        Text("AI が考え中...")
+                                            .foregroundColor(.secondary)
                                     }
-                                    
-                                    if viewModel.isLoading {
-                                        HStack {
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                                            Text("AI が考え中...")
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .padding(.vertical, 8)
-                                    }
+                                    .padding(.vertical, 8)
+                                }
+                            } else {
+                                // ViewModelの初期化中
+                                VStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                    Text("チャット準備中...")
+                                        .foregroundColor(.secondary)
+                                        .padding(.top, 8)
+                                    Spacer()
                                 }
                             }
-                            .padding(.horizontal)
                         }
-                        .onChange(of: chatViewModel?.messages.count) { _ in
-                            if let lastMessage = chatViewModel?.messages.last {
-                                withAnimation {
-                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                                }
+                        .padding(.horizontal)
+                    }
+                    .onChange(of: chatViewModel?.messages.count) { _ in
+                        if let lastMessage = chatViewModel?.messages.last {
+                            withAnimation {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
                         }
                     }
@@ -145,11 +142,11 @@ struct ContentView: View {
     
     private var inputView: some View {
         HStack(spacing: 12) {
-            // 入力フィールドを即座に有効化
+            // 入力フィールド
             TextField("今日何をしましたか？", text: $currentInput, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
-                .disabled(chatViewModel?.isLoading ?? false || isInitializing)
+                .disabled(chatViewModel?.isLoading ?? false || chatViewModel == nil)
                 .onSubmit {
                     // Enterキーでも送信（一般的なチャット仕様）
                     sendMessage()
@@ -167,14 +164,14 @@ struct ContentView: View {
                             .fill(
                                 currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
                                 chatViewModel?.isLoading ?? false || 
-                                isInitializing ? Color.gray : Color.blue
+                                chatViewModel == nil ? Color.gray : Color.blue
                             )
                     )
             }
             .disabled(
                 currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
                 chatViewModel?.isLoading ?? false || 
-                isInitializing
+                chatViewModel == nil
             )
         }
         .padding()
@@ -211,8 +208,7 @@ struct ContentView: View {
     
     /// メッセージ送信処理（ボタンとEnterキー両方から呼び出し）
     private func sendMessage() {
-        guard let viewModel = chatViewModel, 
-              !isInitializing,
+        guard let viewModel = chatViewModel,
               !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { 
             return 
         }
@@ -237,15 +233,14 @@ struct ContentView: View {
         guard chatViewModel == nil else { return }
         
         // 短い遅延でUIの即座表示を保証
-        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
         
         // ViewModelの初期化をメインアクターで実行
         let viewModel = SimpleChatViewModel(modelContext: modelContext)
         
-        // UIの更新をスムーズに見せるため短い遅延を挟む
+        // UIの更新をスムーズに見せる
         withAnimation(.easeOut(duration: 0.3)) {
             self.chatViewModel = viewModel
-            self.isInitializing = false
         }
     }
 }

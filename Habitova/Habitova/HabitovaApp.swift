@@ -12,6 +12,8 @@ import UserNotifications
 
 @main
 struct HabitovaApp: App {
+    @State private var isAppReady = false
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Habit.self,
@@ -32,10 +34,26 @@ struct HabitovaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .task {
-                    await setupAppAsync()
+            ZStack {
+                if isAppReady {
+                    ContentView()
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                } else {
+                    SplashScreenView()
+                        .transition(.opacity)
                 }
+            }
+            .animation(.easeInOut(duration: 0.5), value: isAppReady)
+            .task {
+                await setupAppAsync()
+                
+                // 最低限の表示時間を確保（ユーザー体験向上）
+                try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5秒
+                
+                withAnimation {
+                    isAppReady = true
+                }
+            }
         }
         .modelContainer(sharedModelContainer)
     }
