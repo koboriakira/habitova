@@ -89,6 +89,30 @@ class SimpleChatViewModel: ObservableObject {
         currentInput = ""
         isLoading = true
         
+        // 確実にローディング状態をクリアする
+        defer {
+            isLoading = false
+            print("SimpleChatViewModel: isLoading set to false in defer")
+        }
+        
+        // タイムアウト設定（30秒）
+        let timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30秒
+            if !Task.isCancelled {
+                print("SimpleChatViewModel: Timeout reached, forcing isLoading to false")
+                await MainActor.run {
+                    isLoading = false
+                    let timeoutMessage = Message(
+                        conversationId: conversationId,
+                        sender: .assistant,
+                        content: "⏰ タイムアウト: 処理に時間がかかりすぎています。もう一度お試しください。"
+                    )
+                    modelContext.insert(timeoutMessage)
+                    messages.append(timeoutMessage)
+                }
+            }
+        }
+        
         // ユーザーメッセージを保存
         let userMessage = Message(
             conversationId: conversationId,
@@ -186,13 +210,14 @@ class SimpleChatViewModel: ObservableObject {
             updateConnectionStatusOnError(error)
         }
         
+        // タイムアウトタスクをキャンセル
+        timeoutTask.cancel()
+        
         do {
             try modelContext.save()
         } catch {
             print("Error saving: \(error)")
         }
-        
-        isLoading = false
     }
     
     private func getAvailableHabits() async -> [Habit] {
