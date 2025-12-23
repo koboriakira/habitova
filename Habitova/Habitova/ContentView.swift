@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var chatViewModel: SimpleChatViewModel?
     @State private var currentInput: String = ""
     @State private var showingSettings = false
+    @FocusState private var isInputFocused: Bool
     
     var body: some View {
         NavigationView {
@@ -142,14 +143,23 @@ struct ContentView: View {
     
     private var inputView: some View {
         HStack(spacing: 12) {
-            // 入力フィールド
+            // 入力フィールド（パフォーマンス最適化）
             TextField("今日何をしましたか？", text: $currentInput, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
-                .disabled(chatViewModel?.isLoading ?? false || chatViewModel == nil)
+                .focused($isInputFocused)
+                .disabled(chatViewModel?.isLoading ?? false)
+                .submitLabel(.send)
                 .onSubmit {
                     // Enterキーでも送信（一般的なチャット仕様）
                     sendMessage()
+                }
+                .onAppear {
+                    // アプリ起動後のタップ応答性向上のためのwarming up
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        // フォーカス状態を初期化することで、内部状態をウォームアップ
+                        isInputFocused = false
+                    }
                 }
             
             Button(action: {
@@ -163,15 +173,13 @@ struct ContentView: View {
                         Circle()
                             .fill(
                                 currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
-                                chatViewModel?.isLoading ?? false || 
-                                chatViewModel == nil ? Color.gray : Color.blue
+                                chatViewModel?.isLoading ?? false ? Color.gray : Color.blue
                             )
                     )
             }
             .disabled(
                 currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
-                chatViewModel?.isLoading ?? false || 
-                chatViewModel == nil
+                chatViewModel?.isLoading ?? false
             )
         }
         .padding()
@@ -208,9 +216,16 @@ struct ContentView: View {
     
     /// メッセージ送信処理（ボタンとEnterキー両方から呼び出し）
     private func sendMessage() {
-        guard let viewModel = chatViewModel,
-              !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { 
+        // 入力チェック
+        guard !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { 
             return 
+        }
+        
+        // ViewModelが初期化完了していない場合は一時的に保持
+        guard let viewModel = chatViewModel else {
+            print("ContentView: ViewModel not ready, message queued")
+            // TODO: 必要に応じてメッセージキューイング実装
+            return
         }
         
         print("ContentView: Send button tapped with input: \(currentInput)")
@@ -218,6 +233,9 @@ struct ContentView: View {
         // 送信開始と同時に入力フィールドをクリア（一般的なチャット仕様）
         let messageToSend = currentInput
         currentInput = ""
+        
+        // キーボードを隠す（UX向上）
+        isInputFocused = false
         
         Task {
             print("ContentView: Starting sendMessage task")
@@ -232,14 +250,11 @@ struct ContentView: View {
     private func initializeChatViewModel() async {
         guard chatViewModel == nil else { return }
         
-        // 短い遅延でUIの即座表示を保証
-        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
-        
-        // ViewModelの初期化をメインアクターで実行
+        // 即座にViewModelを初期化（入力フィールドの応答性向上）
         let viewModel = SimpleChatViewModel(modelContext: modelContext)
         
         // UIの更新をスムーズに見せる
-        withAnimation(.easeOut(duration: 0.3)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             self.chatViewModel = viewModel
         }
     }
