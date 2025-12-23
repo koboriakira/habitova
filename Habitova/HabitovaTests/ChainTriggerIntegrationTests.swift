@@ -189,7 +189,7 @@ struct ChainTriggerIntegrationTests {
         print("✅ 3連続チェーン完全実行テスト成功")
     }
     
-    @Test("Claude API統合テスト - 起床報告")
+    @Test("Claude API統合テスト - 起床報告", .disabled("本物のAPIを使用するため無効化"))
     @MainActor
     func testClaudeAPIWakeupIntegration() async throws {
         let container = try createTestModelContainer()
@@ -233,7 +233,7 @@ struct ChainTriggerIntegrationTests {
         print("生成されたトリガーメッセージ: \(triggerMessages)")
     }
     
-    @Test("Claude API統合テスト - 洗顔報告")
+    @Test("Claude API統合テスト - 洗顔報告", .disabled("本物のAPIを使用するため無効化"))
     @MainActor
     func testClaudeAPIWashingIntegration() async throws {
         let container = try createTestModelContainer()
@@ -277,7 +277,7 @@ struct ChainTriggerIntegrationTests {
         print("生成されたトリガーメッセージ: \(triggerMessages)")
     }
     
-    @Test("エンドツーエンド統合テスト - SimpleChatViewModel")
+    @Test("エンドツーエンド統合テスト - SimpleChatViewModel", .disabled("本物のAPIを使用するため無効化"))
     @MainActor
     func testEndToEndChatViewModelIntegration() async throws {
         let container = try createTestModelContainer()

@@ -247,7 +247,7 @@ struct ChainTriggerAdvancedTests {
     
     // MARK: - 実際のAPI使用統合テスト
     
-    @Test("実際のAPI使用 - 自然言語による複雑な報告")
+    @Test("実際のAPI使用 - 自然言語による複雑な報告", .disabled("本物のAPIを使用するため無効化"))
     @MainActor
     func testRealAPIComplexInput() async throws {
         let hasAPI = ChainTriggerTestHelpers.checkAPIConfiguration()
@@ -295,7 +295,7 @@ struct ChainTriggerAdvancedTests {
         print("✅ 実際のAPI複雑入力テスト完了")
     }
     
-    @Test("APIレスポンス時間測定")
+    @Test("APIレスポンス時間測定", .disabled("本物のAPIを使用するため無効化"))
     @MainActor
     func testAPIResponseTime() async throws {
         let hasAPI = ChainTriggerTestHelpers.checkAPIConfiguration()
