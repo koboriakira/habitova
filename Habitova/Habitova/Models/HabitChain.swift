@@ -54,6 +54,42 @@ final class HabitChain {
             self.prerequisiteHabitsData = try? JSONSerialization.data(withJSONObject: prerequisiteHabits)
         }
     }
+    
+    /// 前提条件習慣を指定してHabitChainを初期化するコンビニエンスイニシャライザ
+    convenience init(
+        id: UUID = UUID(),
+        triggerHabits: [UUID],
+        prerequisiteHabits: [PrerequisiteHabit]? = nil,
+        nextHabitId: UUID,
+        delayMinutes: Int = 0,
+        triggerCondition: TriggerCondition,
+        isAutomatic: Bool = false,
+        confidence: Double? = nil,
+        frequency: Int = 0,
+        isActive: Bool = true
+    ) {
+        var prerequisiteData: [String: Any]? = nil
+        if let prerequisites = prerequisiteHabits {
+            // PrerequisiteHabitの配列をJSONエンコード可能な形式に変換
+            if let encoded = try? JSONEncoder().encode(prerequisites),
+               let jsonObject = try? JSONSerialization.jsonObject(with: encoded) {
+                prerequisiteData = ["prerequisites": jsonObject]
+            }
+        }
+        
+        self.init(
+            id: id,
+            triggerHabits: triggerHabits,
+            prerequisiteHabits: prerequisiteData,
+            nextHabitId: nextHabitId,
+            delayMinutes: delayMinutes,
+            triggerCondition: triggerCondition,
+            isAutomatic: isAutomatic,
+            confidence: confidence,
+            frequency: frequency,
+            isActive: isActive
+        )
+    }
 }
 
 // MARK: - Supporting Structures
@@ -61,6 +97,23 @@ struct TriggerCondition: Codable, Sendable {
     let type: String // "timeAfter", "immediately", "contextual"
     let delayMinutes: Int?
     let context: String?
+}
+
+/// 前提条件となる習慣の情報
+struct PrerequisiteHabit: Codable, Sendable {
+    let habitId: UUID
+    let habitName: String
+    let isMandatory: Bool
+    let estimatedTimeMinutes: Int?
+    let description: String?
+    
+    init(habitId: UUID, habitName: String, isMandatory: Bool = true, estimatedTimeMinutes: Int? = nil, description: String? = nil) {
+        self.habitId = habitId
+        self.habitName = habitName
+        self.isMandatory = isMandatory
+        self.estimatedTimeMinutes = estimatedTimeMinutes
+        self.description = description
+    }
 }
 
 // MARK: - Computed Properties
@@ -88,5 +141,39 @@ extension HabitChain {
                 updatedAt = Date()
             }
         }
+    }
+    
+    /// 前提条件習慣の一覧を取得
+    var prerequisiteHabits: [PrerequisiteHabit] {
+        get {
+            guard let data = prerequisiteHabitsData,
+                  let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let prerequisitesArray = jsonObject["prerequisites"] else {
+                return []
+            }
+            
+            // JSONからPrerequisiteHabitの配列にデコード
+            if let prerequisitesData = try? JSONSerialization.data(withJSONObject: prerequisitesArray),
+               let prerequisites = try? JSONDecoder().decode([PrerequisiteHabit].self, from: prerequisitesData) {
+                return prerequisites
+            }
+            return []
+        }
+        set {
+            // PrerequisiteHabitの配列をJSONエンコード
+            if let encoded = try? JSONEncoder().encode(newValue),
+               let jsonObject = try? JSONSerialization.jsonObject(with: encoded) {
+                let data = ["prerequisites": jsonObject]
+                prerequisiteHabitsData = try? JSONSerialization.data(withJSONObject: data)
+            } else {
+                prerequisiteHabitsData = nil
+            }
+            updatedAt = Date()
+        }
+    }
+    
+    /// 前提条件習慣があるかどうか
+    var hasPrerequisites: Bool {
+        return !prerequisiteHabits.isEmpty
     }
 }

@@ -81,6 +81,9 @@ class ChainTriggerService {
         let confidence = chain.confidence ?? 0.0
         let delayMinutes = chain.delayMinutes
         
+        // 前提条件習慣のチェック
+        let prerequisiteMessage = generatePrerequisiteMessage(for: chain)
+        
         // 信頼度に基づいたメッセージ強度の調整
         let messagePrefix = confidence > 0.8 ? "次は" : "よろしければ次に"
         
@@ -99,7 +102,43 @@ class ChainTriggerService {
         // 習慣名に基づいた具体的な提案メッセージ
         let actionMessage = generateActionMessage(for: nextHabit)
         
-        return "\(messagePrefix)\(timingMessage)\(actionMessage)"
+        // 前提条件がある場合はメッセージに含める
+        if !prerequisiteMessage.isEmpty {
+            return "\(messagePrefix)\(timingMessage)\(actionMessage)\n  ⚠️ \(prerequisiteMessage)"
+        } else {
+            return "\(messagePrefix)\(timingMessage)\(actionMessage)"
+        }
+    }
+    
+    /// 前提条件習慣に関するメッセージを生成
+    private func generatePrerequisiteMessage(for chain: HabitChain) -> String {
+        let prerequisites = chain.prerequisiteHabits
+        guard !prerequisites.isEmpty else { return "" }
+        
+        let mandatoryPrerequisites = prerequisites.filter { $0.isMandatory }
+        let optionalPrerequisites = prerequisites.filter { !$0.isMandatory }
+        
+        var messages: [String] = []
+        
+        // 必須の前提条件
+        if !mandatoryPrerequisites.isEmpty {
+            let names = mandatoryPrerequisites.map { prerequisite in
+                if let timeMinutes = prerequisite.estimatedTimeMinutes {
+                    return "\(prerequisite.habitName)（\(timeMinutes)分程度）"
+                } else {
+                    return prerequisite.habitName
+                }
+            }
+            messages.append("その前に: \(names.joined(separator: "、"))")
+        }
+        
+        // オプションの前提条件
+        if !optionalPrerequisites.isEmpty {
+            let names = optionalPrerequisites.map { $0.habitName }
+            messages.append("可能であれば: \(names.joined(separator: "、"))")
+        }
+        
+        return messages.joined(separator: " / ")
     }
     
     private func generateActionMessage(for habit: Habit) -> String {

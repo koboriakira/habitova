@@ -130,10 +130,17 @@ class MockDataLoader {
             modelContext.insert(chain)
         }
         
+        // 3. HabitStepのサンプルを作成（ストレッチ習慣用）
+        let steps = createSampleHabitSteps(habits: habits)
+        for step in steps {
+            modelContext.insert(step)
+        }
+        
         try modelContext.save()
         print("MockDataLoader: Akiraユーザーのモックデータを読み込み完了")
         print("- 習慣数: \(habits.count)個")
         print("- チェーン数: \(chains.count)個")
+        print("- ステップ数: \(steps.count)個")
     }
     
     /// 開発時用：既存データクリア
@@ -149,6 +156,12 @@ class MockDataLoader {
         let existingChains = try modelContext.fetch(chainDescriptor)
         for chain in existingChains {
             modelContext.delete(chain)
+        }
+        
+        let stepDescriptor = FetchDescriptor<HabitStep>()
+        let existingSteps = try modelContext.fetch(stepDescriptor)
+        for step in existingSteps {
+            modelContext.delete(step)
         }
     }
     
@@ -367,6 +380,7 @@ class MockDataLoader {
            let washingHabit = findHabit(byUUID: "6B29FC41-CA47-1067-B31D-00DD010662DA") {
             let chain1 = HabitChain(
                 triggerHabits: [wakeupHabit.id],
+                prerequisiteHabits: [String: Any]?(nil),
                 nextHabitId: washingHabit.id,
                 delayMinutes: 0,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 0, context: nil),
@@ -380,6 +394,7 @@ class MockDataLoader {
            let coffeeHabit = findHabit(byUUID: "6B29FC42-CA47-1067-B31D-00DD010662DA") {
             let chain2 = HabitChain(
                 triggerHabits: [washingHabit.id],
+                prerequisiteHabits: [String: Any]?(nil),
                 nextHabitId: coffeeHabit.id,
                 delayMinutes: 5,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 5, context: nil),
@@ -388,11 +403,31 @@ class MockDataLoader {
             chains.append(chain2)
         }
         
-        // 3. コーヒー → ストレッチ
+        // 3. コーヒー → ストレッチ（prerequisiteHabits付き）
         if let coffeeHabit = findHabit(byUUID: "6B29FC42-CA47-1067-B31D-00DD010662DA"),
            let stretchHabit = findHabit(byUUID: "6B29FC43-CA47-1067-B31D-00DD010662DA") {
+            
+            // prerequisiteHabits（前提条件習慣）を設定
+            let prerequisiteHabits = [
+                PrerequisiteHabit(
+                    habitId: UUID(), // モック用の仮ID
+                    habitName: "居間の机をどかす",
+                    isMandatory: true,
+                    estimatedTimeMinutes: 3,
+                    description: "ストレッチスペースを確保するため机を移動"
+                ),
+                PrerequisiteHabit(
+                    habitId: UUID(), // モック用の仮ID
+                    habitName: "ストレッチマットを敷く",
+                    isMandatory: false,
+                    estimatedTimeMinutes: 2,
+                    description: "快適なストレッチのための準備（可能であれば）"
+                )
+            ]
+            
             let chain3 = HabitChain(
                 triggerHabits: [coffeeHabit.id],
+                prerequisiteHabits: prerequisiteHabits,
                 nextHabitId: stretchHabit.id,
                 delayMinutes: 5,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 5, context: nil),
@@ -406,6 +441,7 @@ class MockDataLoader {
            let breakfastHabit = findHabit(byUUID: "6B29FC44-CA47-1067-B31D-00DD010662DA") {
             let chain4 = HabitChain(
                 triggerHabits: [stretchHabit.id],
+                prerequisiteHabits: [String: Any]?(nil),
                 nextHabitId: breakfastHabit.id,
                 delayMinutes: 5,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 5, context: nil),
@@ -419,6 +455,7 @@ class MockDataLoader {
            let sendoffHabit = findHabit(byUUID: "6B29FC45-CA47-1067-B31D-00DD010662DA") {
             let chain5 = HabitChain(
                 triggerHabits: [breakfastHabit.id],
+                prerequisiteHabits: [String: Any]?(nil),
                 nextHabitId: sendoffHabit.id,
                 delayMinutes: 10,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 10, context: nil),
@@ -432,6 +469,7 @@ class MockDataLoader {
            let myBreakfastHabit = findHabit(byUUID: "6B29FC46-CA47-1067-B31D-00DD010662DA") {
             let chain6 = HabitChain(
                 triggerHabits: [sendoffHabit.id],
+                prerequisiteHabits: [String: Any]?(nil),
                 nextHabitId: myBreakfastHabit.id,
                 delayMinutes: 5,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 5, context: nil),
@@ -445,6 +483,7 @@ class MockDataLoader {
            let workStartHabit = findHabit(byUUID: "6B29FC47-CA47-1067-B31D-00DD010662DA") {
             let chain7 = HabitChain(
                 triggerHabits: [myBreakfastHabit.id],
+                prerequisiteHabits: [String: Any]?(nil),
                 nextHabitId: workStartHabit.id,
                 delayMinutes: 30,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 30, context: nil),
@@ -460,6 +499,7 @@ class MockDataLoader {
            let nightSleepHabit = findHabit(byUUID: "6B29FC49-CA47-1067-B31D-00DD010662DA") {
             let chain8 = HabitChain(
                 triggerHabits: [childSleepHabit.id],
+                prerequisiteHabits: [String: Any]?(nil),
                 nextHabitId: nightSleepHabit.id,
                 delayMinutes: 30,
                 triggerCondition: TriggerCondition(type: "timeAfter", delayMinutes: 30, context: nil),
@@ -469,6 +509,62 @@ class MockDataLoader {
         }
         
         return chains
+    }
+    
+    /// サンプルHabitStepを作成（ストレッチ習慣用）
+    private func createSampleHabitSteps(habits: [Habit]) -> [HabitStep] {
+        var steps: [HabitStep] = []
+        
+        // ストレッチ習慣を検索
+        guard let stretchHabit = habits.first(where: { $0.name.contains("ストレッチ") }) else {
+            return steps
+        }
+        
+        // ステップ1: ストレッチマットを敷く
+        let step1 = HabitStep(
+            habitId: stretchHabit.id,
+            stepNumber: 1,
+            title: "ストレッチマットを敷く",
+            stepDescription: "快適なストレッチのための準備",
+            isOptional: true,
+            estimatedTimeMinutes: 2
+        )
+        steps.append(step1)
+        
+        // ステップ2: 軽いウォーミングアップ
+        let step2 = HabitStep(
+            habitId: stretchHabit.id,
+            stepNumber: 2,
+            title: "軽いウォーミングアップ",
+            stepDescription: "関節をゆっくり動かして体を準備",
+            isOptional: false,
+            estimatedTimeMinutes: 3
+        )
+        steps.append(step2)
+        
+        // ステップ3: ストレッチを実行
+        let step3 = HabitStep(
+            habitId: stretchHabit.id,
+            stepNumber: 3,
+            title: "ストレッチを実行",
+            stepDescription: "上半身、下半身、背中を中心にした軽いストレッチ",
+            isOptional: false,
+            estimatedTimeMinutes: 8
+        )
+        steps.append(step3)
+        
+        // ステップ4: クールダウン
+        let step4 = HabitStep(
+            habitId: stretchHabit.id,
+            stepNumber: 4,
+            title: "クールダウン",
+            stepDescription: "深呼吸しながら体を落ち着かせる",
+            isOptional: true,
+            estimatedTimeMinutes: 2
+        )
+        steps.append(step4)
+        
+        return steps
     }
     
 }

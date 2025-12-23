@@ -21,7 +21,8 @@ struct HabitovaApp: App {
             HabitExecution.self,
             HabitovaTask.self,
             ExecutionInference.self,
-            HabitChain.self
+            HabitChain.self,
+            HabitStep.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
