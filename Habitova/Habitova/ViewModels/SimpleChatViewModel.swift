@@ -54,17 +54,26 @@ class SimpleChatViewModel: ObservableObject {
         self.modelContext = modelContext
         self.claudeAPIService = ClaudeAPIService.shared
         self.chainChecker = ChainConsistencyChecker(modelContext: modelContext)
-        loadRecentMessages()
-        checkConnectionStatus()
+        
+        // 初期化後に非同期で読み込み
+        Task {
+            await loadRecentMessagesAsync()
+            await checkConnectionStatusAsync()
+        }
     }
     
     func checkConnectionStatus() {
         Task {
-            if claudeAPIService.isAPIKeyConfigured() {
-                connectionStatus = .connected
-            } else {
-                connectionStatus = .disconnected
-            }
+            await checkConnectionStatusAsync()
+        }
+    }
+    
+    @MainActor
+    private func checkConnectionStatusAsync() async {
+        if claudeAPIService.isAPIKeyConfigured() {
+            connectionStatus = .connected
+        } else {
+            connectionStatus = .disconnected
         }
     }
     
@@ -231,6 +240,14 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     private func loadRecentMessages() {
+        // 後方互換性のため残す
+        Task {
+            await loadRecentMessagesAsync()
+        }
+    }
+    
+    @MainActor
+    private func loadRecentMessagesAsync() async {
         // 会話履歴の読み込み（最近の20件まで）
         let fetchDescriptor = FetchDescriptor<Message>(
             predicate: #Predicate<Message> { $0.conversationId == conversationId },

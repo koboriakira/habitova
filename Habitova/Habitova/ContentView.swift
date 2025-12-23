@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var chatViewModel: SimpleChatViewModel?
     @State private var currentInput: String = ""
     @State private var showingSettings = false
+    @State private var isInitializing = true
     
     var body: some View {
         NavigationView {
@@ -23,32 +24,45 @@ struct ContentView: View {
                 headerView
                 
                 // メッセージリスト
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            if let viewModel = chatViewModel {
-                                ForEach(viewModel.messages) { message in
-                                    MessageBubble(message: message)
-                                        .id(message.id)
-                                }
-                                
-                                if viewModel.isLoading {
-                                    HStack {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                                        Text("AI が考え中...")
-                                            .foregroundColor(.secondary)
+                if isInitializing {
+                    // ローディング画面
+                    VStack {
+                        Spacer()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        Text("初期化中...")
+                            .foregroundColor(.secondary)
+                            .padding(.top, 8)
+                        Spacer()
+                    }
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                if let viewModel = chatViewModel {
+                                    ForEach(viewModel.messages) { message in
+                                        MessageBubble(message: message)
+                                            .id(message.id)
                                     }
-                                    .padding(.vertical, 8)
+                                    
+                                    if viewModel.isLoading {
+                                        HStack {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                            Text("AI が考え中...")
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .padding(.vertical, 8)
+                                    }
                                 }
                             }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
-                    }
-                    .onChange(of: chatViewModel?.messages.count) { _ in
-                        if let lastMessage = chatViewModel?.messages.last {
-                            withAnimation {
-                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        .onChange(of: chatViewModel?.messages.count) { _ in
+                            if let lastMessage = chatViewModel?.messages.last {
+                                withAnimation {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                                }
                             }
                         }
                     }
@@ -61,14 +75,8 @@ struct ContentView: View {
             }
             .navigationTitle("Habitova")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                if chatViewModel == nil {
-                    print("ContentView: Creating SimpleChatViewModel")
-                    chatViewModel = SimpleChatViewModel(modelContext: modelContext)
-                    print("ContentView: SimpleChatViewModel created successfully")
-                } else {
-                    print("ContentView: SimpleChatViewModel already exists")
-                }
+            .task {
+                await initializeChatViewModel()
             }
             .sheet(isPresented: $showingSettings) {
                 EnhancedSettingsView()
@@ -137,46 +145,41 @@ struct ContentView: View {
     
     private var inputView: some View {
         HStack(spacing: 12) {
-            if let viewModel = chatViewModel {
-                TextField("今日何をしましたか？", text: $currentInput, axis: .vertical)
+            // 入力フィールドを即座に有効化
+            TextField("今日何をしましたか？", text: $currentInput, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
-                .disabled(viewModel.isLoading)
-                
-                Button(action: {
-                    print("ContentView: Send button tapped with input: \(currentInput)")
-                    Task {
-                        print("ContentView: Starting sendMessage task")
-                        viewModel.currentInput = currentInput
-                        await viewModel.sendMessage()
-                        currentInput = ""
-                        print("ContentView: sendMessage task completed")
-                    }
-                }) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(
-                            Circle()
-                                .fill(currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
-                        )
+                .disabled(chatViewModel?.isLoading ?? false || isInitializing)
+            
+            Button(action: {
+                guard let viewModel = chatViewModel, !isInitializing else { return }
+                print("ContentView: Send button tapped with input: \(currentInput)")
+                Task {
+                    print("ContentView: Starting sendMessage task")
+                    viewModel.currentInput = currentInput
+                    await viewModel.sendMessage()
+                    currentInput = ""
+                    print("ContentView: sendMessage task completed")
                 }
-                .disabled(currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
-            } else {
-                TextField("ロード中...", text: .constant(""))
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(true)
-                
-                Button(action: {}) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Circle().fill(Color.gray))
-                }
-                .disabled(true)
+            }) {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(
+                        Circle()
+                            .fill(
+                                currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
+                                chatViewModel?.isLoading ?? false || 
+                                isInitializing ? Color.gray : Color.blue
+                            )
+                    )
             }
+            .disabled(
+                currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
+                chatViewModel?.isLoading ?? false || 
+                isInitializing
+            )
         }
         .padding()
         .background(Color(UIColor.systemBackground))
@@ -207,6 +210,24 @@ struct ContentView: View {
                 .padding(.vertical, 8)
                 .background(viewModel.connectionStatus.color.opacity(0.1))
             }
+        }
+    }
+    
+    /// チャットViewModelの非同期初期化
+    @MainActor
+    private func initializeChatViewModel() async {
+        guard chatViewModel == nil else { return }
+        
+        // 短い遅延でUIの即座表示を保証
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        
+        // ViewModelの初期化をメインアクターで実行
+        let viewModel = SimpleChatViewModel(modelContext: modelContext)
+        
+        // UIの更新をスムーズに見せるため短い遅延を挟む
+        withAnimation(.easeOut(duration: 0.3)) {
+            self.chatViewModel = viewModel
+            self.isInitializing = false
         }
     }
 }

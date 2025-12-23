@@ -33,28 +33,40 @@ struct HabitovaApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .onAppear {
-                    setupMockData()
-                    setupNotifications()
+                .task {
+                    await setupAppAsync()
                 }
         }
         .modelContainer(sharedModelContainer)
     }
     
-    private func setupMockData() {
-        let context = sharedModelContainer.mainContext
-        MockDataLoader.shared.setupMockDataInContext(context)
-    }
-    
-    private func setupNotifications() {
-        // 通知デリゲートを設定
+    /// 非同期でアプリの初期化を実行
+    @MainActor
+    private func setupAppAsync() async {
+        // 即座に通知デリゲートを設定（同期）
         UNUserNotificationCenter.current().delegate = NotificationService.shared
         
-        // スマートリマインダーの初期設定
-        Task {
-            let context = sharedModelContainer.mainContext
-            await setupInitialReminders(context: context)
-        }
+        // バックグラウンドでその他の初期化を並行実行
+        async let mockDataTask: Void = setupMockDataAsync()
+        async let notificationTask: Void = setupNotificationsAsync()
+        
+        // 両方の完了を待つ
+        _ = await (mockDataTask, notificationTask)
+    }
+    
+    private func setupMockDataAsync() async {
+        let container = sharedModelContainer
+        await Task.detached {
+            await MainActor.run {
+                let context = container.mainContext
+                MockDataLoader.shared.setupMockDataInContext(context)
+            }
+        }.value
+    }
+    
+    private func setupNotificationsAsync() async {
+        let context = sharedModelContainer.mainContext
+        await setupInitialReminders(context: context)
     }
     
     @MainActor

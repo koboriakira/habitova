@@ -94,15 +94,19 @@ class MockDataLoader {
     }
     
     func setupMockDataInContext(_ context: ModelContext) {
-        // Check if data already exists
-        let fetchDescriptor = FetchDescriptor<Habit>()
+        // 高速な存在チェック：制限付きクエリを使用
+        var fetchDescriptor = FetchDescriptor<Habit>()
+        fetchDescriptor.fetchLimit = 1 // 1件でも見つかればOK
+        
         if let existingHabits = try? context.fetch(fetchDescriptor), !existingHabits.isEmpty {
-            print("Mock data already exists")
+            print("Mock data already exists (count: \(existingHabits.count))")
             return
         }
         
+        print("Setting up mock data...")
         do {
             try loadAkiraUserData(modelContext: context)
+            print("Mock data setup completed successfully")
         } catch {
             print("Failed to setup Akira mock data: \(error)")
         }
