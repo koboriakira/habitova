@@ -150,17 +150,13 @@ struct ContentView: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
                 .disabled(chatViewModel?.isLoading ?? false || isInitializing)
+                .onSubmit {
+                    // Enterキーでも送信（一般的なチャット仕様）
+                    sendMessage()
+                }
             
             Button(action: {
-                guard let viewModel = chatViewModel, !isInitializing else { return }
-                print("ContentView: Send button tapped with input: \(currentInput)")
-                Task {
-                    print("ContentView: Starting sendMessage task")
-                    viewModel.currentInput = currentInput
-                    await viewModel.sendMessage()
-                    currentInput = ""
-                    print("ContentView: sendMessage task completed")
-                }
+                sendMessage()
             }) {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 16, weight: .semibold))
@@ -210,6 +206,28 @@ struct ContentView: View {
                 .padding(.vertical, 8)
                 .background(viewModel.connectionStatus.color.opacity(0.1))
             }
+        }
+    }
+    
+    /// メッセージ送信処理（ボタンとEnterキー両方から呼び出し）
+    private func sendMessage() {
+        guard let viewModel = chatViewModel, 
+              !isInitializing,
+              !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { 
+            return 
+        }
+        
+        print("ContentView: Send button tapped with input: \(currentInput)")
+        
+        // 送信開始と同時に入力フィールドをクリア（一般的なチャット仕様）
+        let messageToSend = currentInput
+        currentInput = ""
+        
+        Task {
+            print("ContentView: Starting sendMessage task")
+            viewModel.currentInput = messageToSend
+            await viewModel.sendMessage()
+            print("ContentView: sendMessage task completed")
         }
     }
     
