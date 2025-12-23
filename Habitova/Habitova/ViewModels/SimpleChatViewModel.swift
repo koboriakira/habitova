@@ -95,20 +95,21 @@ class SimpleChatViewModel: ObservableObject {
             print("SimpleChatViewModel: isLoading set to false in defer")
         }
         
-        // タイムアウト設定（30秒）
+        // タイムアウト設定（10秒）
         let timeoutTask = Task {
-            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30秒
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10秒
             if !Task.isCancelled {
-                print("SimpleChatViewModel: Timeout reached, forcing isLoading to false")
+                print("SimpleChatViewModel: Timeout reached after 10 seconds, forcing isLoading to false")
                 await MainActor.run {
                     isLoading = false
                     let timeoutMessage = Message(
                         conversationId: conversationId,
                         sender: .assistant,
-                        content: "⏰ タイムアウト: 処理に時間がかかりすぎています。もう一度お試しください。"
+                        content: "⏰ タイムアウト: 処理に時間がかかりすぎています。\n\nデバッグ情報: 10秒でタイムアウトしました。ログを確認してください。"
                     )
                     modelContext.insert(timeoutMessage)
                     messages.append(timeoutMessage)
+                    try? modelContext.save()
                 }
             }
         }
@@ -127,34 +128,64 @@ class SimpleChatViewModel: ObservableObject {
         print("SimpleChatViewModel: 利用可能な習慣数: \(availableHabits.count)")
         
         do {
-            // Claude APIで習慣分析を実行
-            print("SimpleChatViewModel: Claude API呼び出し開始")
-            let analysisResult = try await claudeAPIService.analyzeUserInput(
+            // まず、AI提案への応答かどうかをチェック
+            print("SimpleChatViewModel: 提案応答チェック開始")
+            let suggestionResponseService = SuggestionResponseService.shared
+            let suggestionResponse = await suggestionResponseService.analyzeSuggestionResponse(
                 userInput: userMessageContent,
-                availableHabits: availableHabits,
-                conversationHistory: messages.suffix(5).map { $0 }
+                conversationHistory: messages,
+                context: modelContext
             )
-            print("SimpleChatViewModel: Claude API呼び出し成功、抽出された習慣数: \(analysisResult.extractedHabits.count)")
+            
+            var finalExtractedHabits: [InferredHabit] = []
+            
+            if let suggestionResult = suggestionResponse {
+                print("SimpleChatViewModel: 提案応答として認識、習慣数: \(suggestionResult.executedHabits.count)")
+                finalExtractedHabits = suggestionResult.executedHabits
+            } else {
+                // 通常のClaude API分析を実行
+                print("SimpleChatViewModel: Claude API呼び出し開始")
+                let analysisResult = try await claudeAPIService.analyzeUserInput(
+                    userInput: userMessageContent,
+                    availableHabits: availableHabits,
+                    conversationHistory: messages.suffix(5).map { $0 }
+                )
+                print("SimpleChatViewModel: Claude API呼び出し成功、抽出された習慣数: \(analysisResult.extractedHabits.count)")
+                finalExtractedHabits = analysisResult.extractedHabits
+            }
             
             // 抽出された習慣の実行記録を保存
-            await saveHabitExecutions(analysisResult.extractedHabits)
+            await saveHabitExecutions(finalExtractedHabits)
             
             // チェーン整合性をチェック
-            let executedHabitIds = analysisResult.extractedHabits.map { $0.habitId }
+            let executedHabitIds = finalExtractedHabits.map { $0.habitId }
             print("SimpleChatViewModel: チェーン整合性チェック開始、習慣ID: \(executedHabitIds)")
             lastChainReport = await chainChecker.checkChainConsistency(for: executedHabitIds)
             print("SimpleChatViewModel: チェーン整合性チェック完了")
             
-            // チェーンベーストリガーメッセージを生成
+            // チェーンベーストリガーメッセージを生成（提案習慣IDも取得）
             print("SimpleChatViewModel: トリガーメッセージ生成開始")
-            let triggerMessages = await ChainTriggerService.shared.generateTriggerMessages(
+            let triggerInfo = await ChainTriggerService.shared.generateTriggerMessagesWithSuggestions(
                 for: executedHabitIds,
                 context: modelContext
             )
-            print("SimpleChatViewModel: トリガーメッセージ生成完了、メッセージ数: \(triggerMessages.count)")
+            print("SimpleChatViewModel: トリガーメッセージ生成完了、メッセージ数: \(triggerInfo.messages.count), 提案習慣数: \(triggerInfo.suggestedHabitIds.count)")
             
-            // AI応答にチェーン整合性とトリガーメッセージを追加
-            var enhancedResponse = analysisResult.aiResponse
+            // AI応答の生成
+            var enhancedResponse: String
+            
+            if let suggestionResult = suggestionResponse {
+                // 提案応答の場合、確認メッセージを生成
+                let habitNames = suggestionResult.executedHabits.map { $0.habitName }.joined(separator: "、")
+                enhancedResponse = "✅ \(habitNames)を実行されたんですね。素晴らしいです！"
+            } else {
+                // 通常のAPI分析結果を使用
+                enhancedResponse = (try? await claudeAPIService.analyzeUserInput(
+                    userInput: userMessageContent,
+                    availableHabits: availableHabits,
+                    conversationHistory: messages.suffix(5).map { $0 }
+                ).aiResponse) ?? "ありがとうございます。"
+            }
             
             // チェーン整合性の結果を追加
             if let report = lastChainReport, !report.suggestions.isEmpty {
@@ -162,37 +193,46 @@ class SimpleChatViewModel: ObservableObject {
             }
             
             // チェーントリガーメッセージを追加
-            if !triggerMessages.isEmpty {
-                enhancedResponse += "\n\n🔗 " + triggerMessages.joined(separator: "\n🔗 ")
+            if !triggerInfo.messages.isEmpty {
+                enhancedResponse += "\n\n🔗 " + triggerInfo.messages.joined(separator: "\n🔗 ")
             }
             
-            // AI応答を作成
+            // AI応答を作成（提案された習慣IDも保存）
             let aiMessage = Message(
                 conversationId: conversationId,
                 sender: .assistant,
-                content: enhancedResponse
+                content: enhancedResponse,
+                suggestedHabitsData: !triggerInfo.suggestedHabitIds.isEmpty ? 
+                    try? JSONEncoder().encode(triggerInfo.suggestedHabitIds) : nil
             )
             
             modelContext.insert(aiMessage)
             messages.append(aiMessage)
             
         } catch {
-            print("Claude API Error: \(error)")
-            print("Error details: \(String(describing: error))")
+            print("SimpleChatViewModel: Claude API Error: \(error)")
+            print("SimpleChatViewModel: Error details: \(String(describing: error))")
+            print("SimpleChatViewModel: Error type: \(type(of: error))")
             
             // より詳細なエラーログ
             if let apiError = error as? APIError {
-                print("APIError type: \(apiError)")
+                print("SimpleChatViewModel: APIError type: \(apiError)")
                 switch apiError {
                 case .invalidResponse:
-                    print("Invalid API response received")
+                    print("SimpleChatViewModel: Invalid API response received")
                 case .invalidJSON:
-                    print("JSON parsing failed")
+                    print("SimpleChatViewModel: JSON parsing failed")
                 case .parsingError(let innerError):
-                    print("Parsing error: \(innerError)")
+                    print("SimpleChatViewModel: Parsing error: \(innerError)")
                 case .networkError(let networkError):
-                    print("Network error: \(networkError)")
+                    print("SimpleChatViewModel: Network error: \(networkError)")
                 }
+            }
+            
+            // Task cancellation check
+            if error is CancellationError {
+                print("SimpleChatViewModel: Task was cancelled")
+                return // タスクがキャンセルされた場合は処理を中止
             }
             
             // 詳細なエラーハンドリング

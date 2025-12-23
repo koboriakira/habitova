@@ -17,7 +17,10 @@
       "Bash(ls:*)",
       "Bash(bash:*)",
       "Bash(SOURCE_ROOT=/Users/a_kobori/git/habitova BUILT_PRODUCTS_DIR=/tmp/build PRODUCT_NAME=Habitova bash /Users/a_kobori/git/habitova/copy-env.sh)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(xcrun simctl list:*)",
+      "Bash(xcrun simctl boot:*)",
+      "Bash(xcrun simctl spawn:*)"
     ],
     "deny": []
   }

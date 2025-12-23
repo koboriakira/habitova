@@ -93,6 +93,9 @@ class ClaudeAPIService: ObservableObject {
         conversationHistory: [Message] = []
     ) async throws -> HabitAnalysisResult {
         
+        print("ClaudeAPIService: analyzeUserInput 開始 - 入力: '\(userInput)'")
+        print("ClaudeAPIService: 利用可能な習慣数: \(availableHabits.count)")
+        
         // システムプロンプトを構築
         let systemPrompt = buildSystemPrompt(availableHabits: availableHabits)
         
@@ -117,11 +120,16 @@ class ClaudeAPIService: ObservableObject {
             system: systemPrompt
         )
         
+        print("ClaudeAPIService: API呼び出し開始")
         // API呼び出し
-        let response = try await makeAPICall(request: request)
+        let response = try await makeAPICall(request: request, availableHabits: availableHabits, userInput: userInput)
         
+        print("ClaudeAPIService: API呼び出し成功、レスポンス解析開始")
         // レスポンスを解析
-        return try parseAnalysisResponse(response: response, availableHabits: availableHabits)
+        let result = try parseAnalysisResponse(response: response, availableHabits: availableHabits)
+        print("ClaudeAPIService: 解析完了 - 抽出された習慣数: \(result.extractedHabits.count)")
+        
+        return result
     }
     
     private func buildSystemPrompt(availableHabits: [Habit]) -> String {
@@ -164,34 +172,17 @@ class ClaudeAPIService: ObservableObject {
         """
     }
     
-    private func makeAPICall(request: ClaudeRequest) async throws -> ClaudeResponse {
+    private func makeAPICall(request: ClaudeRequest, availableHabits: [Habit], userInput: String) async throws -> ClaudeResponse {
         guard !apiKey.isEmpty else {
-            // デモ用のモックレスポンス
+            print("ClaudeAPIService: APIキーが設定されていないため、モックレスポンスを生成します")
+            // デモ用のモックレスポンス（実際の習慣データを使用）
+            let mockResponseText = generateMockResponse(for: userInput, availableHabits: availableHabits)
+            print("ClaudeAPIService: モックレスポンス: \(mockResponseText)")
             return ClaudeResponse(
                 id: "mock-response",
                 content: [ClaudeResponse.ContentBlock(
                     type: "text",
-                    text: """
-                    {
-                      "extracted_habits": [
-                        {
-                          "habit_id": "habit-wakeup-001",
-                          "habit_name": "朝7時起床",
-                          "execution_type": "direct",
-                          "completion_percentage": 100,
-                          "confidence": 0.9
-                        }
-                      ],
-                      "proactive_questions": ["洗顔はしましたか？"],
-                      "ai_response": "おはようございます。朝7時起床とのことですね。素晴らしい。",
-                      "chain_consistency": {
-                        "detected_chain": ["habit-wakeup-001"],
-                        "expected_chain": ["habit-wakeup-001", "habit-washing-001", "habit-coffee-001"],
-                        "skipped_steps": ["habit-washing-001"],
-                        "inconsistency_level": 0.3
-                      }
-                    }
-                    """
+                    text: mockResponseText
                 )],
                 model: "claude-3-5-sonnet-20241022",
                 usage: nil
@@ -209,15 +200,36 @@ class ClaudeAPIService: ObservableObject {
         let jsonData = try JSONEncoder().encode(request)
         urlRequest.httpBody = jsonData
         
+        print("ClaudeAPIService: URLSession API呼び出し実行中...")
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw APIError.networkError(NSError(domain: "APIError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response"]))
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("ClaudeAPIService: HTTPレスポンスの取得に失敗")
+            throw APIError.networkError(NSError(domain: "APIError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid HTTP response"]))
         }
         
-        let claudeResponse = try JSONDecoder().decode(ClaudeResponse.self, from: data)
-        return claudeResponse
+        print("ClaudeAPIService: HTTPステータスコード: \(httpResponse.statusCode)")
+        
+        guard httpResponse.statusCode == 200 else {
+            let errorMessage = "HTTP Status: \(httpResponse.statusCode)"
+            print("ClaudeAPIService: APIエラー - \(errorMessage)")
+            if let errorData = String(data: data, encoding: .utf8) {
+                print("ClaudeAPIService: エラーレスポンス内容: \(errorData)")
+            }
+            throw APIError.networkError(NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorMessage]))
+        }
+        
+        do {
+            let claudeResponse = try JSONDecoder().decode(ClaudeResponse.self, from: data)
+            print("ClaudeAPIService: APIレスポンス正常にデコードされました")
+            return claudeResponse
+        } catch {
+            print("ClaudeAPIService: レスポンスのデコードに失敗: \(error)")
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("ClaudeAPIService: レスポンス内容: \(responseString)")
+            }
+            throw APIError.parsingError(error)
+        }
     }
     
     private func parseAnalysisResponse(
@@ -226,11 +238,15 @@ class ClaudeAPIService: ObservableObject {
     ) throws -> HabitAnalysisResult {
         
         guard let content = response.content.first?.text else {
+            print("ClaudeAPIService: レスポンスコンテンツが空です")
             throw APIError.invalidResponse
         }
         
+        print("ClaudeAPIService: レスポンスコンテンツ: \(content)")
+        
         // JSONレスポンスをパース
         guard let jsonData = content.data(using: .utf8) else {
+            print("ClaudeAPIService: UTF8データへの変換に失敗")
             throw APIError.invalidJSON
         }
         

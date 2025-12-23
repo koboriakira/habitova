@@ -22,6 +22,7 @@ final class Message {
     var createdAt: Date
     var relatedHabitsData: Data? // JSON encoded habit IDs
     var relatedChainsData: Data? // JSON encoded chain information
+    var suggestedHabitsData: Data? // JSON encoded suggested habit IDs for trigger messages
     
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \HabitExecution.message)
@@ -39,7 +40,8 @@ final class Message {
         sender: MessageSender,
         content: String,
         relatedHabitsData: Data? = nil,
-        relatedChainsData: Data? = nil
+        relatedChainsData: Data? = nil,
+        suggestedHabitsData: Data? = nil
     ) {
         self.id = id
         self.conversationId = conversationId
@@ -48,6 +50,7 @@ final class Message {
         self.createdAt = Date()
         self.relatedHabitsData = relatedHabitsData
         self.relatedChainsData = relatedChainsData
+        self.suggestedHabitsData = suggestedHabitsData
     }
 }
 
@@ -69,6 +72,20 @@ extension Message {
                 return
             }
             relatedHabitsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    var suggestedHabitIds: [UUID]? {
+        get {
+            guard let data = suggestedHabitsData else { return nil }
+            return try? JSONDecoder().decode([UUID].self, from: data)
+        }
+        set {
+            guard let newValue = newValue else {
+                suggestedHabitsData = nil
+                return
+            }
+            suggestedHabitsData = try? JSONEncoder().encode(newValue)
         }
     }
 }

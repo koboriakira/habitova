@@ -132,6 +132,57 @@ Claude APIを使用して、ユーザーの習慣報告を分析し、以下の�
 - プロアクティブな質問の生成
 - 励ましのメッセージ
 
+## デバッグ・ログ確認
+
+### Xcodeでのログ確認方法
+
+1. **Xcodeデバッグエリアを表示**
+   ```
+   View → Debug Area → Show Debug Area
+   ```
+   または `⌘ + Shift + Y`
+
+2. **アプリを実行してログを確認**
+   - Xcodeでアプリを実行（`⌘ + R`）
+   - 下部のコンソールエリアにリアルタイムでログが表示される
+   - `SimpleChatViewModel:` や `ClaudeAPIService:` で始まるデバッグログを確認
+
+### ターミナルでのログ監視
+
+```bash
+# システムログからHabitovaアプリのログを監視
+log stream --predicate 'subsystem contains "com.koboriakira.habitova.Habitova"' --info --debug
+
+# または、macOSのConsoleアプリを使用
+open -a Console
+# → 左サイドバーでシミュレーターを選択 → アプリ実行時のログを確認
+```
+
+### シミュレーター管理
+
+```bash
+# 利用可能なシミュレーター一覧
+xcrun simctl list devices | grep iPhone
+
+# シミュレーター起動
+xcrun simctl boot [DEVICE_ID]
+
+# Simulatorアプリを開く
+open -a Simulator
+```
+
+### よくある問題とログ確認
+
+1. **チャット応答が止まる場合**
+   - `SimpleChatViewModel: sendMessage() called` が表示されるか確認
+   - `ClaudeAPIService: API呼び出し開始` の後にエラーログがないか確認
+   - 10秒後にタイムアウトメッセージが表示されるか確認
+
+2. **API接続問題**
+   - `ClaudeAPIService: APIキーが設定されていない` → モックモードで動作
+   - `HTTPステータスコード: [CODE]` → API接続状況を確認
+   - ネットワークエラーの詳細ログを確認
+
 ## トラブルシューティング
 
 ### ビルドエラー
@@ -147,6 +198,17 @@ Claude APIを使用して、ユーザーの習慣報告を分析し、以下の�
 3. **Missing API Key**
    - API キーが未設定の場合、モックレスポンスで動作します
    - 実際のClaude APIを使用する場合は環境変数を設定してください
+
+### 実行時エラー
+
+1. **チャット応答が停止する**
+   - Xcodeのデバッグコンソールでエラーログを確認
+   - APIキーの設定状況をチェック
+   - ネットワーク接続を確認
+
+2. **データベースエラー**
+   - シミュレーターをリセット（`Device → Erase All Content and Settings`）
+   - アプリを再インストール
 
 ## ライセンス
 

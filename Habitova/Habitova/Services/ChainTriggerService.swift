@@ -20,7 +20,20 @@ class ChainTriggerService {
         for executedHabitIds: [UUID],
         context: ModelContext
     ) async -> [String] {
+        let triggerInfo = await generateTriggerMessagesWithSuggestions(
+            for: executedHabitIds,
+            context: context
+        )
+        return triggerInfo.messages
+    }
+    
+    /// トリガーメッセージと提案された習慣IDを含む詳細な情報を生成
+    func generateTriggerMessagesWithSuggestions(
+        for executedHabitIds: [UUID],
+        context: ModelContext
+    ) async -> TriggerMessageInfo {
         var triggerMessages: [String] = []
+        var suggestedHabitIds: [UUID] = []
         
         do {
             let habits = try await fetchHabits(context: context)
@@ -28,21 +41,25 @@ class ChainTriggerService {
             
             // 実行された習慣に基づいて次の習慣を特定
             for habitId in executedHabitIds {
-                let nextHabitMessages = await findNextHabitMessages(
+                let nextHabitInfo = await findNextHabitMessagesWithIds(
                     triggerHabitId: habitId,
                     habits: habits,
                     chains: chains
                 )
-                triggerMessages.append(contentsOf: nextHabitMessages)
+                triggerMessages.append(contentsOf: nextHabitInfo.messages)
+                suggestedHabitIds.append(contentsOf: nextHabitInfo.suggestedHabitIds)
             }
             
-            return triggerMessages.uniqued() // 重複を除去
+            return TriggerMessageInfo(
+                messages: triggerMessages.uniqued(),
+                suggestedHabitIds: suggestedHabitIds.uniqued()
+            )
             
         } catch {
             print("ChainTriggerService エラー: \(error)")
             print("ChainTriggerService エラー詳細: \(String(describing: error))")
             print("ChainTriggerService 実行された習慣ID: \(executedHabitIds)")
-            return []
+            return TriggerMessageInfo(messages: [], suggestedHabitIds: [])
         }
     }
     
@@ -51,7 +68,21 @@ class ChainTriggerService {
         habits: [Habit],
         chains: [HabitChain]
     ) async -> [String] {
+        let info = await findNextHabitMessagesWithIds(
+            triggerHabitId: triggerHabitId,
+            habits: habits,
+            chains: chains
+        )
+        return info.messages
+    }
+    
+    private func findNextHabitMessagesWithIds(
+        triggerHabitId: UUID,
+        habits: [Habit],
+        chains: [HabitChain]
+    ) async -> (messages: [String], suggestedHabitIds: [UUID]) {
         var messages: [String] = []
+        var suggestedHabitIds: [UUID] = []
         
         // このトリガー習慣に関連するチェーンを検索
         let relevantChains = chains.filter { chain in
@@ -66,10 +97,11 @@ class ChainTriggerService {
                     triggerHabit: habits.first { $0.id == triggerHabitId }
                 )
                 messages.append(message)
+                suggestedHabitIds.append(nextHabit.id)
             }
         }
         
-        return messages
+        return (messages, suggestedHabitIds)
     }
     
     private func generateTriggerMessage(
@@ -255,6 +287,14 @@ class ChainTriggerService {
         let fetchDescriptor = FetchDescriptor<HabitChain>()
         return try context.fetch(fetchDescriptor)
     }
+}
+
+// MARK: - Supporting Types
+
+/// トリガーメッセージ情報
+struct TriggerMessageInfo: Sendable {
+    let messages: [String]
+    let suggestedHabitIds: [UUID]
 }
 
 // MARK: - Array Extension
