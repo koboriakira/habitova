@@ -298,6 +298,8 @@ class ClaudeAPIService: ObservableObject {
     
     /// デモ用モックレスポンス生成
     private func generateMockResponse(for userInput: String, availableHabits: [Habit]) -> String {
+        print("ClaudeAPIService: generateMockResponse called for input: '\(userInput)'")
+        print("ClaudeAPIService: Available habits: \(availableHabits.map { $0.name })")
         // ユーザー入力に基づいて最も関連性の高い習慣を推測
         let lowercaseInput = userInput.lowercased()
         var matchedHabits: [(Habit, Double)] = []
@@ -310,8 +312,9 @@ class ClaudeAPIService: ObservableObject {
             // キーワードマッチング
             if lowercaseInput.contains("起き") && habitNameLower.contains("起床") {
                 confidence = 0.9
-            } else if lowercaseInput.contains("洗顔") || lowercaseInput.contains("顔洗") {
-                if habitNameLower.contains("洗顔") { confidence = 0.9 }
+            } else if (lowercaseInput.contains("洗顔") || lowercaseInput.contains("顔洗") || lowercaseInput.contains("身だしなみ")) && 
+                      (habitNameLower.contains("洗顔") || habitNameLower.contains("身だしなみ")) {
+                confidence = 0.9
             } else if lowercaseInput.contains("コーヒー") {
                 if habitNameLower.contains("コーヒー") { confidence = 0.9 }
             } else if lowercaseInput.contains("ストレッチ") {

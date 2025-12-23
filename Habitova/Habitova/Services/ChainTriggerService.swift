@@ -40,6 +40,8 @@ class ChainTriggerService {
             
         } catch {
             print("ChainTriggerService エラー: \(error)")
+            print("ChainTriggerService エラー詳細: \(String(describing: error))")
+            print("ChainTriggerService 実行された習慣ID: \(executedHabitIds)")
             return []
         }
     }

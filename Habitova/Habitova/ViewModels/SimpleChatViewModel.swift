@@ -91,27 +91,34 @@ class SimpleChatViewModel: ObservableObject {
         
         // 利用可能な習慣を取得
         let availableHabits = await getAvailableHabits()
+        print("SimpleChatViewModel: 利用可能な習慣数: \(availableHabits.count)")
         
         do {
             // Claude APIで習慣分析を実行
+            print("SimpleChatViewModel: Claude API呼び出し開始")
             let analysisResult = try await claudeAPIService.analyzeUserInput(
                 userInput: userMessageContent,
                 availableHabits: availableHabits,
                 conversationHistory: messages.suffix(5).map { $0 }
             )
+            print("SimpleChatViewModel: Claude API呼び出し成功、抽出された習慣数: \(analysisResult.extractedHabits.count)")
             
             // 抽出された習慣の実行記録を保存
             await saveHabitExecutions(analysisResult.extractedHabits)
             
             // チェーン整合性をチェック
             let executedHabitIds = analysisResult.extractedHabits.map { $0.habitId }
+            print("SimpleChatViewModel: チェーン整合性チェック開始、習慣ID: \(executedHabitIds)")
             lastChainReport = await chainChecker.checkChainConsistency(for: executedHabitIds)
+            print("SimpleChatViewModel: チェーン整合性チェック完了")
             
             // チェーンベーストリガーメッセージを生成
+            print("SimpleChatViewModel: トリガーメッセージ生成開始")
             let triggerMessages = await ChainTriggerService.shared.generateTriggerMessages(
                 for: executedHabitIds,
                 context: modelContext
             )
+            print("SimpleChatViewModel: トリガーメッセージ生成完了、メッセージ数: \(triggerMessages.count)")
             
             // AI応答にチェーン整合性とトリガーメッセージを追加
             var enhancedResponse = analysisResult.aiResponse
@@ -138,6 +145,22 @@ class SimpleChatViewModel: ObservableObject {
             
         } catch {
             print("Claude API Error: \(error)")
+            print("Error details: \(String(describing: error))")
+            
+            // より詳細なエラーログ
+            if let apiError = error as? APIError {
+                print("APIError type: \(apiError)")
+                switch apiError {
+                case .invalidResponse:
+                    print("Invalid API response received")
+                case .invalidJSON:
+                    print("JSON parsing failed")
+                case .parsingError(let innerError):
+                    print("Parsing error: \(innerError)")
+                case .networkError(let networkError):
+                    print("Network error: \(networkError)")
+                }
+            }
             
             // 詳細なエラーハンドリング
             let errorContent = handleError(error, userInput: userMessageContent)
@@ -178,15 +201,20 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     private func saveHabitExecutions(_ inferredHabits: [InferredHabit]) async {
+        print("SimpleChatViewModel: saveHabitExecutions called with \(inferredHabits.count) habits")
         for inferredHabit in inferredHabits {
+            print("SimpleChatViewModel: Processing habit \(inferredHabit.habitName) (ID: \(inferredHabit.habitId))")
             // 該当する習慣を検索
             let fetchDescriptor = FetchDescriptor<Habit>(
                 predicate: #Predicate<Habit> { $0.id == inferredHabit.habitId }
             )
             
             guard let habit = try? modelContext.fetch(fetchDescriptor).first else {
+                print("SimpleChatViewModel: Habit not found for ID: \(inferredHabit.habitId)")
                 continue
             }
+            
+            print("SimpleChatViewModel: Found habit: \(habit.name)")
             
             // 習慣実行記録を作成
             let execution = HabitExecution(
@@ -198,6 +226,7 @@ class SimpleChatViewModel: ObservableObject {
             )
             
             modelContext.insert(execution)
+            print("SimpleChatViewModel: Created execution record for \(habit.name)")
         }
     }
     
